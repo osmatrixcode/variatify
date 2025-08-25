@@ -33,7 +33,7 @@ Object.defineProperty(HTMLMediaElement.prototype, "playbackRate", {
 
     if (value.source !== "tunevo") {
       console.info("🎧 Tunevo: Prevented unintended playback rate change.");
-      playbackRateDescriptor.set.call(this, 1.25);
+      playbackRateDescriptor.set.call(this, currentEffect.rate);
     } else {
       playbackRateDescriptor.set.call(this, value.value);
     }
