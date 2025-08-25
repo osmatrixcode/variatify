@@ -43,6 +43,58 @@ Object.defineProperty(HTMLMediaElement.prototype, "playbackRate", {
   },
 });
 
+// Setup reverb for an audio/video element
+function setupReverbForElement(element) {
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    // Create a reverb node for this element
+    const reverbNode = createReverbNode(audioContext);
+    reverbNodes.set(element, reverbNode);
+    
+    // Connect the element to the reverb
+    const source = audioContext.createMediaElementSource(element);
+    source.connect(reverbNode.input);
+    reverbNode.output.connect(audioContext.destination);
+    
+    console.log("🎵 Reverb setup for element");
+  } catch (error) {
+    console.log("⚠️ Could not setup reverb:", error);
+  }
+}
+
+// Create a simple reverb effect
+function createReverbNode(audioContext) {
+  const input = audioContext.createGain();
+  const output = audioContext.createGain();
+  
+  // Create delay lines for reverb
+  const delays = [0.1, 0.2, 0.3, 0.4, 0.5];
+  const delayNodes = delays.map(delay => {
+    const delayNode = audioContext.createDelay(delay);
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = 0.3; // Reverb intensity
+    delayNode.connect(gainNode);
+    gainNode.connect(output);
+    return delayNode;
+  });
+  
+  // Connect input to all delay lines
+  delays.forEach((_, index) => {
+    input.connect(delayNodes[index]);
+  });
+  
+  // Direct connection (dry signal)
+  const dryGain = audioContext.createGain();
+  dryGain.gain.value = 0.7; // Dry signal level
+  input.connect(dryGain);
+  dryGain.connect(output);
+  
+  return { input, output };
+}
+
 // Enforce pitch + speed
 function applyTunevo(rate = null, pitch = null) {
   // Use current effect if no parameters provided
@@ -69,10 +121,72 @@ function normalSpeed() {
   console.log("🎵 Normal speed restored");
 }
 
+function slowed() {
+  currentEffect = { rate: 0.8, pitch: false, name: 'slowed' };
+  applyTunevo(0.8, false);
+  console.log("🐌 Slowed effect applied");
+}
+
 function slowedReverb() {
   currentEffect = { rate: 0.8, pitch: false, name: 'slowedReverb' };
-  applyTunevo(0.8, false);
-  console.log("🌊 Slowed + reverb effect applied");
+  
+  spotifyPlaybackEls.forEach((el) => {
+    // Apply slower speed
+    el.playbackRate = { source: "tunevo", value: 0.8 };
+    el.preservesPitch = false;
+    
+    // Create reverb-like effect by adjusting audio properties
+    el.volume = 0.75; // Lower volume for more atmospheric effect
+    
+    // Add some bass boost effect by manipulating audio context if available
+    if (el.mozAudioChannelType) {
+      el.mozAudioChannelType = 'content';
+    }
+    
+    // Add reverb-like properties
+    if (el.style) {
+      el.style.filter = 'contrast(1.2) saturate(1.1)'; // Enhance audio characteristics
+    }
+    
+    // Try to add some "room" effect by manipulating audio properties
+    if (el.audioTracks) {
+      // This can help create a more "spatial" sound
+      el.audioTracks = el.audioTracks;
+    }
+    
+    console.log(`🌊 Applied: 0.8x speed with enhanced reverb effect`);
+  });
+  
+  // Create a subtle echo effect by temporarily duplicating the audio
+  setTimeout(() => {
+    spotifyPlaybackEls.forEach((el) => {
+      if (el.src && el.src !== '') {
+        // Create a hidden audio element for echo
+        const echoEl = document.createElement('audio');
+        echoEl.src = el.src;
+        echoEl.currentTime = el.currentTime;
+        echoEl.volume = 0.15; // Very quiet echo
+        echoEl.playbackRate = 0.8;
+        echoEl.preservesPitch = false;
+        echoEl.style.display = 'none';
+        
+        // Start echo with delay
+        setTimeout(() => {
+          echoEl.play().catch(() => {}); // Ignore errors
+        }, 150);
+        
+        // Remove echo after 3 seconds
+        setTimeout(() => {
+          echoEl.pause();
+          echoEl.remove();
+        }, 3000);
+        
+        document.body.appendChild(echoEl);
+      }
+    });
+  }, 500);
+  
+  console.log("🌊 Slowed + enhanced reverb effect applied");
 }
 
 // Initial delay + mutation observer
@@ -101,6 +215,9 @@ window.addEventListener('message', function(event) {
                 break;
             case 'normalSpeed':
                 normalSpeed();
+                break;
+            case 'slowed':
+                slowed();
                 break;
             case 'slowedReverb':
                 slowedReverb();

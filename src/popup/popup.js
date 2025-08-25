@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Get button elements
     const speedUpBtn = document.getElementById('speedUpId');
     const normalSpeedBtn = document.getElementById('normalSpeedId');
+    const slowedBtn = document.getElementById('slowedId');
     const slowedReverbBtn = document.getElementById('slowedReverbId');
 
     // Add event listeners
@@ -13,6 +14,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     normalSpeedBtn.addEventListener('click', function() {
         sendMessageToContentScript('normalSpeed');
+    });
+
+    slowedBtn.addEventListener('click', function() {
+        sendMessageToContentScript('slowed');
     });
 
     slowedReverbBtn.addEventListener('click', function() {
