@@ -15,6 +15,15 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             // Get current song info from Spotify page
             const songInfo = getCurrentSongInfo();
             sendResponse({songInfo: songInfo});
+        } else if (request.action === 'getCurrentSetting' || request.action === 'clearCurrentSetting' || request.action === 'listAllSettings') {
+            // Forward these messages to the injected script and wait for response
+            window.postMessage({
+                action: request.action,
+                source: 'content-script'
+            }, '*');
+            
+            // Don't send immediate response, wait for injected script response
+            return true; // Keep message channel open
         } else {
             // Forward other messages to the injected script
             window.postMessage({
@@ -114,5 +123,15 @@ function getCurrentSongInfo() {
 window.addEventListener('message', function(event) {
     if (event.data.source === 'injected-script') {
         console.log('Response from injected script:', event.data);
+        
+        // Handle specific responses that need to be sent back to popup
+        if (event.data.action === 'currentSetting' || event.data.action === 'settingCleared' || event.data.action === 'allSettings') {
+            // Send response back to popup
+            chrome.runtime.sendMessage({
+                source: 'content-script',
+                action: event.data.action,
+                data: event.data
+            });
+        }
     }
 });
