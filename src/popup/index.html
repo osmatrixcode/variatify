@@ -11,6 +11,12 @@
       <header class="header">
         <h1>🎧 Tunevo</h1>
         <p>Transform your Spotify experience</p>
+        <div class="current-song">
+          <div class="song-info">
+            <span class="song-title" id="songTitle">Loading...</span>
+            <span class="song-artist" id="songArtist">Loading...</span>
+          </div>
+        </div>
       </header>
 
       <div class="controls">
@@ -90,6 +96,38 @@
       .header p {
         font-size: 14px;
         color: #6d7175;
+        margin-bottom: 16px;
+      }
+
+      .current-song {
+        background: #f6f6f7;
+        border-radius: 6px;
+        padding: 12px;
+        margin-top: 12px;
+      }
+
+      .song-info {
+        text-align: left;
+      }
+
+      .song-title {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: #202223;
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .song-artist {
+        display: block;
+        font-size: 12px;
+        color: #6d7175;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .controls {

@@ -7,6 +7,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const slowedBtn = document.getElementById('slowedId');
     const slowedReverbBtn = document.getElementById('slowedReverbId');
 
+    // Get song info elements
+    const songTitle = document.getElementById('songTitle');
+    const songArtist = document.getElementById('songArtist');
+
+    // Load current song info when popup opens
+    loadCurrentSong();
+
     // Add event listeners
     speedUpBtn.addEventListener('click', function() {
         sendMessageToContentScript('speedUp');
@@ -24,6 +31,34 @@ document.addEventListener('DOMContentLoaded', function() {
         sendMessageToContentScript('slowedReverb');
     });
 });
+
+function loadCurrentSong() {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        const activeTab = tabs[0];
+        
+        chrome.tabs.sendMessage(activeTab.id, {
+            action: 'getCurrentSong',
+            source: 'popup'
+        }, function(response) {
+            if (chrome.runtime.lastError) {
+                console.error('Error getting song info:', chrome.runtime.lastError);
+                updateSongDisplay('Not playing', 'Spotify');
+            } else if (response && response.songInfo) {
+                updateSongDisplay(response.songInfo.title, response.songInfo.artist);
+            } else {
+                updateSongDisplay('Not playing', 'Spotify');
+            }
+        });
+    });
+}
+
+function updateSongDisplay(title, artist) {
+    const songTitle = document.getElementById('songTitle');
+    const songArtist = document.getElementById('songArtist');
+    
+    songTitle.textContent = title || 'Not playing';
+    songArtist.textContent = artist || 'Spotify';
+}
 
 function sendMessageToContentScript(action) {
     // Get the active tab and send message to content script
