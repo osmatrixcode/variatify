@@ -4,8 +4,8 @@ const spotifyPlaybackEls = [];
 
 // State management for current effect
 let currentEffect = {
-  rate: 1.25,
-  pitch: false,
+  rate: 1.00,
+  pitch: true,
   name: 'speedUp'
 };
 
