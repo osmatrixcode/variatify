@@ -4,7 +4,19 @@
   "version": "1.0",
   "manifest_version": 3,
   "action": {
-    "default_popup": "static/index.html",
-    "default_icon": "static/tunevo_icon.png"
-  }
+    "default_popup": "src/popup/index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://open.spotify.com/*"],
+      "js": ["src/content/load-main.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "matches": ["https://open.spotify.com/*"],
+      "resources": ["src/injected/main.js"]
+    }
+  ]
 }
