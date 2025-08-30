@@ -72,11 +72,11 @@ function loadCurrentSong() {
         }, function(response) {
             if (chrome.runtime.lastError) {
                 console.error('Error getting song info:', chrome.runtime.lastError);
-                updateSongDisplay('Not playing', 'Spotify');
+                updateSongDisplay('Not playing');
             } else if (response && response.songInfo) {
-                updateSongDisplay(response.songInfo.title, response.songInfo.artist);
+                updateSongDisplay(response.songInfo.title);
             } else {
-                updateSongDisplay('Not playing', 'Spotify');
+                updateSongDisplay('Not playing');
             }
         });
         
@@ -85,12 +85,12 @@ function loadCurrentSong() {
     });
 }
 
-function updateSongDisplay(title, artist) {
+function updateSongDisplay(title) {
     const songTitle = document.getElementById('songTitle');
     const songArtist = document.getElementById('songArtist');
     
     songTitle.textContent = title || 'Not playing';
-    songArtist.textContent = artist || 'Spotify';
+    songArtist.textContent = ''; // No longer showing artist
 }
 
 function sendMessageToContentScript(action) {

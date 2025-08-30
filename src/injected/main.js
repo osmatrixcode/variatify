@@ -15,8 +15,8 @@ let currentSongId = null;
 
 
 // Local storage functions for song settings
-function getSongId(title, artist) {
-  return `${title} - ${artist}`.toLowerCase().trim();
+function getSongId(title) {
+  return title.toLowerCase().trim();
 }
 
 function saveSongSetting(songId, effect) {
@@ -46,20 +46,17 @@ function loadSongSetting(songId) {
 
 function getCurrentSongInfo() {
   try {
-    // Try multiple selectors to find song info on Spotify
+    // Try multiple selectors to find song title on Spotify
     const selectors = [
       '[data-testid="now-playing-widget"] [data-testid="context-item-info-title"]',
       '[data-testid="context-item-info-title"]',
       '.now-playing-bar [data-testid="context-item-info-title"]',
       '.now-playing-bar .track-info__name',
-      '.now-playing-bar .track-info__artists',
       '[data-testid="track-info"] [data-testid="context-item-info-title"]',
-      '.track-info__name',
-      '.track-info__artists'
+      '.track-info__name'
     ];
 
     let title = 'Not playing';
-    let artist = 'Spotify';
 
     // Try to find title
     for (let selector of selectors) {
@@ -70,44 +67,6 @@ function getCurrentSongInfo() {
       }
     }
 
-    // Try to find artist (look for elements near the title)
-    const artistSelectors = [
-      '[data-testid="context-item-info-subtitle"]',
-      '[data-testid="now-playing-widget"] [data-testid="context-item-info-subtitle"]',
-      '.now-playing-bar [data-testid="context-item-info-subtitle"]',
-      '.track-info__artists',
-      '.now-playing-bar .track-info__artists',
-      '[data-testid="track-info"] [data-testid="context-item-info-subtitle"]',
-      '.track-info__artists a',
-      '.now-playing-bar .track-info__artists a',
-      '[data-testid="context-item-info-subtitle"] a',
-      '.Type__TypeElement-sc-goli3j-0[data-encore-id="type"]'
-    ];
-
-    for (let selector of artistSelectors) {
-      const element = document.querySelector(selector);
-      if (element && element.textContent.trim()) {
-        artist = element.textContent.trim();
-        break;
-      }
-    }
-
-    // If still not found, try to find any element with artist-like text
-    if (artist === 'Spotify') {
-      const allElements = document.querySelectorAll('*');
-      for (let element of allElements) {
-        const text = element.textContent.trim();
-        if (text && text.length > 0 && text.length < 100 && 
-          !text.includes('Spotify') && !text.includes('Premium') && 
-          !text.includes('Play') && !text.includes('Pause') &&
-          text !== title && text.includes(' ')) {
-          // This might be an artist name
-          artist = text;
-          break;
-        }
-      }
-    }
-
     // Fallback: try to get from page title
     if (title === 'Not playing') {
       const pageTitle = document.title;
@@ -115,21 +74,20 @@ function getCurrentSongInfo() {
         const parts = pageTitle.split(' - ');
         if (parts.length >= 2) {
           title = parts[0].trim();
-          artist = parts[1].replace(' | Spotify', '').trim();
         }
       }
     }
 
-    return { title, artist };
+    return { title };
   } catch (error) {
     console.error('Error getting song info:', error);
-    return { title: 'Not playing', artist: 'Spotify' };
+    return { title: 'Not playing' };
   }
 }
 
 function checkForSongChange() {
   const songInfo = getCurrentSongInfo();
-  const newSongId = getSongId(songInfo.title, songInfo.artist);
+  const newSongId = getSongId(songInfo.title);
   
   if (newSongId !== currentSongId && songInfo.title !== 'Not playing') {
     console.log(`🎵 Song changed from "${currentSongId}" to "${newSongId}"`);
@@ -149,7 +107,7 @@ function checkForSongChange() {
   
   // Debug: Log current song info periodically (less verbose)
   if (songInfo.title !== 'Not playing' && Math.random() < 0.1) { // Only log 10% of the time
-    console.log(`🎵 Currently playing: "${songInfo.title}" by "${songInfo.artist}" (ID: ${newSongId})`);
+    console.log(`🎵 Currently playing: "${songInfo.title}" (ID: ${newSongId})`);
   }
 }
 
@@ -314,7 +272,7 @@ setTimeout(() => {
   
   // Initialize current song ID
   const songInfo = getCurrentSongInfo();
-  currentSongId = getSongId(songInfo.title, songInfo.artist);
+  currentSongId = getSongId(songInfo.title);
   
   // Load and apply saved setting for current song if available
   if (currentSongId && songInfo.title !== 'Not playing') {
