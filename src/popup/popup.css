@@ -198,3 +198,34 @@
   .reverb:hover {
     border-color: #9c6ade;
   }
+
+  .footer {
+    margin-top: 24px;
+    text-align: center;
+    padding-top: 16px;
+    border-top: 1px solid #e1e3e5;
+  }
+
+  .buy-me-coffee {
+    display: inline-block;
+    background: #ffdd00;
+    color: #000000;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(255, 221, 0, 0.3);
+    border: 1px solid #e6c700;
+  }
+
+  .buy-me-coffee:hover {
+    background: #ffed4e;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(255, 221, 0, 0.4);
+  }
+
+  .buy-me-coffee:active {
+    transform: translateY(0);
+  }
