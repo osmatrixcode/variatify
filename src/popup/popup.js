@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const speedUpBtn = document.getElementById('speedUpId');
     const normalSpeedBtn = document.getElementById('normalSpeedId');
     const slowedBtn = document.getElementById('slowedId');
-    const slowedReverbBtn = document.getElementById('slowedReverbId');
+
     const clearSettingBtn = document.getElementById('clearSettingBtn');
     const debugBtn = document.getElementById('debugBtn');
 
@@ -36,11 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(loadCurrentSetting, 500); // Reload setting after applying
     });
 
-    slowedReverbBtn.addEventListener('click', function() {
-        sendMessageToContentScript('slowedReverb');
-        showNotification('Slowed + Reverb applied!');
-        setTimeout(loadCurrentSetting, 500); // Reload setting after applying
-    });
+
 
     clearSettingBtn.addEventListener('click', function() {
         sendMessageToContentScript('clearCurrentSetting');
@@ -139,8 +135,7 @@ function updateSettingDisplay(setting) {
         const settingNames = {
             'speedUp': 'Speed Up',
             'normalSpeed': 'Normal Speed',
-            'slowed': 'Slowed',
-            'slowedReverb': 'Slowed + Reverb'
+            'slowed': 'Slowed'
         };
         
         settingText.textContent = `Saved: ${settingNames[setting.name] || setting.name}`;
