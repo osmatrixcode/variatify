@@ -41,7 +41,7 @@ body {
   text-align: center;
   margin-bottom: 24px;
   padding: 16px;
-  background: white;
+  background: #191414;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -50,17 +50,17 @@ body {
   font-size: 24px;
   font-weight: 600;
   margin-bottom: 4px;
-  color: #202223;
+  color: #ffffff;
 }
 
 .header p {
   font-size: 14px;
-  color: #6d7175;
+  color: #cccccc;
   margin-bottom: 16px;
 }
 
 .current-song {
-  background: #f6f6f7;
+  background: #191414;
   border-radius: 6px;
   padding: 12px;
   margin-top: 12px;
@@ -74,7 +74,7 @@ body {
   display: block;
   font-size: 14px;
   font-weight: 600;
-  color: #202223;
+  color: #ffffff;
   margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -84,7 +84,7 @@ body {
 .song-artist {
   display: block;
   font-size: 12px;
-  color: #6d7175;
+  color: #cccccc;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -101,7 +101,7 @@ body {
 
 .setting-text {
   font-size: 11px;
-  color: #6d7175;
+  color: #cccccc;
   font-style: italic;
 }
 
@@ -148,8 +148,8 @@ body {
 
 .control-btn {
   width: 100%;
-  background: white;
-  border: 1px solid #e1e3e5;
+  background: #191414;
+  border: 1px solid #333333;
   border-radius: 8px;
   padding: 12px;
   cursor: pointer;
@@ -159,7 +159,7 @@ body {
 
 .control-btn:hover {
   border-color: #5c6ac4;
-  box-shadow: 0 2px 4px rgba(92, 106, 196, 0.1);
+  box-shadow: 0 2px 4px rgba(92, 106, 196, 0.3);
   transform: translateY(-1px);
 }
 
@@ -184,7 +184,7 @@ body {
 .control-btn span {
   font-size: 14px;
   font-weight: 500;
-  color: #202223;
+  color: #ffffff;
 }
 
 .speed-up {
@@ -229,7 +229,7 @@ body {
 .buy-me-coffee {
   display: inline-block;
   background: #ffdd00;
-  color: #000000;
+  color: #191414;
   text-decoration: none;
   padding: 8px 16px;
   border-radius: 6px;
