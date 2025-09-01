@@ -8,6 +8,62 @@ script.onload = function () {
 };
 (document.head || document.documentElement).appendChild(script);
 
+// Chrome storage functions
+async function saveSongSetting(songId, effect) {
+  try {
+    const result = await chrome.storage.local.get('tunevo_song_settings');
+    const songSettings = result.tunevo_song_settings || {};
+    songSettings[songId] = effect;
+    await chrome.storage.local.set({ tunevo_song_settings: songSettings });
+    console.log(`💾 Saved setting for "${songId}":`, effect);
+    return true;
+  } catch (error) {
+    console.error('Error saving song setting:', error);
+    return false;
+  }
+}
+
+async function loadSongSetting(songId) {
+  try {
+    const result = await chrome.storage.local.get('tunevo_song_settings');
+    const songSettings = result.tunevo_song_settings || {};
+    const setting = songSettings[songId];
+    if (setting) {
+      console.log(`📂 Loaded setting for "${songId}":`, setting);
+      return setting;
+    }
+  } catch (error) {
+    console.error('Error loading song setting:', error);
+  }
+  return null;
+}
+
+async function clearSongSetting(songId) {
+  try {
+    const result = await chrome.storage.local.get('tunevo_song_settings');
+    const songSettings = result.tunevo_song_settings || {};
+    delete songSettings[songId];
+    await chrome.storage.local.set({ tunevo_song_settings: songSettings });
+    console.log(`🗑️ Cleared setting for "${songId}"`);
+    return true;
+  } catch (error) {
+    console.error('Error clearing song setting:', error);
+    return false;
+  }
+}
+
+async function listAllSavedSettings() {
+  try {
+    const result = await chrome.storage.local.get('tunevo_song_settings');
+    const songSettings = result.tunevo_song_settings || {};
+    console.log('📋 All saved song settings:', songSettings);
+    return songSettings;
+  } catch (error) {
+    console.error('Error listing saved settings:', error);
+    return {};
+  }
+}
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.source === 'popup') {
@@ -81,6 +137,43 @@ function getCurrentSongInfo() {
 window.addEventListener('message', function(event) {
     if (event.data.source === 'injected-script') {
         console.log('Response from injected script:', event.data);
+        
+        // Handle storage operations from injected script
+        if (event.data.action === 'saveSongSetting') {
+            saveSongSetting(event.data.songId, event.data.effect).then(success => {
+                window.postMessage({
+                    source: 'content-script',
+                    action: 'saveSongSettingResponse',
+                    success: success
+                }, '*');
+            });
+        } else if (event.data.action === 'loadSongSetting') {
+            loadSongSetting(event.data.songId).then(setting => {
+                window.postMessage({
+                    source: 'content-script',
+                    action: 'loadSongSettingResponse',
+                    songId: event.data.songId,
+                    setting: setting
+                }, '*');
+            });
+        } else if (event.data.action === 'clearSongSetting') {
+            clearSongSetting(event.data.songId).then(success => {
+                window.postMessage({
+                    source: 'content-script',
+                    action: 'clearSongSettingResponse',
+                    songId: event.data.songId,
+                    success: success
+                }, '*');
+            });
+        } else if (event.data.action === 'listAllSettings') {
+            listAllSavedSettings().then(settings => {
+                window.postMessage({
+                    source: 'content-script',
+                    action: 'listAllSettingsResponse',
+                    settings: settings
+                }, '*');
+            });
+        }
         
         // Handle specific responses that need to be sent back to popup
         if (event.data.action === 'currentSetting' || event.data.action === 'settingCleared' || event.data.action === 'allSettings') {
