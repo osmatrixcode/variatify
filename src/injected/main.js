@@ -12,36 +12,65 @@ let currentEffect = {
 // Current song tracking
 let currentSongId = null;
 
-
-
-// Local storage functions for song settings
+// Storage functions that communicate with content script
 function getSongId(title) {
   return title.toLowerCase().trim();
 }
 
 function saveSongSetting(songId, effect) {
-  try {
-    const songSettings = JSON.parse(localStorage.getItem('tunevo_song_settings') || '{}');
-    songSettings[songId] = effect;
-    localStorage.setItem('tunevo_song_settings', JSON.stringify(songSettings));
-    console.log(`💾 Saved setting for "${songId}":`, effect);
-  } catch (error) {
-    console.error('Error saving song setting:', error);
-  }
+  window.postMessage({
+    source: 'injected-script',
+    action: 'saveSongSetting',
+    songId: songId,
+    effect: effect
+  }, '*');
+  
+  // Set up a one-time listener for the response to log success/failure
+  const responseHandler = function(event) {
+    if (event.data.source === 'content-script' && event.data.action === 'saveSongSettingResponse') {
+      window.removeEventListener('message', responseHandler);
+      if (event.data.success) {
+        console.log(`✅ Successfully saved setting for "${songId}"`);
+      } else {
+        console.error(`❌ Failed to save setting for "${songId}"`);
+      }
+    }
+  };
+  
+  window.addEventListener('message', responseHandler);
+  
+  // Clean up listener after 2 seconds
+  setTimeout(() => {
+    window.removeEventListener('message', responseHandler);
+  }, 2000);
 }
 
 function loadSongSetting(songId) {
-  try {
-    const songSettings = JSON.parse(localStorage.getItem('tunevo_song_settings') || '{}');
-    const setting = songSettings[songId];
-    if (setting) {
-      console.log(`📂 Loaded setting for "${songId}":`, setting);
-      return setting;
-    }
-  } catch (error) {
-    console.error('Error loading song setting:', error);
-  }
-  return null;
+  return new Promise((resolve) => {
+    // Set up a one-time listener for the response
+    const responseHandler = function(event) {
+      if (event.data.source === 'content-script' && event.data.action === 'loadSongSettingResponse' && event.data.songId === songId) {
+        window.removeEventListener('message', responseHandler);
+        resolve(event.data.setting);
+      }
+    };
+    
+    window.addEventListener('message', responseHandler);
+    
+    // Send the request
+    window.postMessage({
+      source: 'injected-script',
+      action: 'loadSongSetting',
+      songId: songId
+    }, '*');
+    
+    // Timeout after 1 second
+    setTimeout(() => {
+      window.removeEventListener('message', responseHandler);
+      console.warn(`⚠️ Timeout loading setting for "${songId}", falling back to null`);
+      resolve(null);
+    }, 1000);
+  });
 }
 
 function getCurrentSongInfo() {
@@ -94,15 +123,16 @@ function checkForSongChange() {
     currentSongId = newSongId;
     
     // Load and apply saved setting for this song
-    const savedSetting = loadSongSetting(newSongId);
-    if (savedSetting) {
-      console.log(`🔄 Applying saved setting for "${newSongId}":`, savedSetting);
-      applyEffectByName(savedSetting.name);
-    } else {
-      console.log(`📝 No saved setting found for "${newSongId}", resetting to normal speed`);
-      // Reset to normal speed when no saved setting (don't save this as a setting)
-      applyNormalSpeedWithoutSaving();
-    }
+    loadSongSetting(newSongId).then((savedSetting) => {
+      if (savedSetting) {
+        console.log(`🔄 Applying saved setting for "${newSongId}":`, savedSetting);
+        applyEffectByName(savedSetting.name);
+      } else {
+        console.log(`📝 No saved setting found for "${newSongId}", resetting to normal speed`);
+        // Reset to normal speed when no saved setting (don't save this as a setting)
+        applyNormalSpeedWithoutSaving();
+      }
+    });
   }
   
   // Debug: Log current song info periodically (less verbose)
@@ -128,30 +158,42 @@ function applyEffectByName(effectName) {
 }
 
 function getCurrentSongSetting() {
-  if (!currentSongId) return null;
+  if (!currentSongId) return Promise.resolve(null);
   return loadSongSetting(currentSongId);
 }
 
 function clearSongSetting(songId) {
-  try {
-    const songSettings = JSON.parse(localStorage.getItem('tunevo_song_settings') || '{}');
-    delete songSettings[songId];
-    localStorage.setItem('tunevo_song_settings', JSON.stringify(songSettings));
-    console.log(`🗑️ Cleared setting for "${songId}"`);
-  } catch (error) {
-    console.error('Error clearing song setting:', error);
-  }
+  window.postMessage({
+    source: 'injected-script',
+    action: 'clearSongSetting',
+    songId: songId
+  }, '*');
 }
 
 function listAllSavedSettings() {
-  try {
-    const songSettings = JSON.parse(localStorage.getItem('tunevo_song_settings') || '{}');
-    console.log('📋 All saved song settings:', songSettings);
-    return songSettings;
-  } catch (error) {
-    console.error('Error listing saved settings:', error);
-    return {};
-  }
+  return new Promise((resolve) => {
+    // Set up a one-time listener for the response
+    const responseHandler = function(event) {
+      if (event.data.source === 'content-script' && event.data.action === 'listAllSettingsResponse') {
+        window.removeEventListener('message', responseHandler);
+        resolve(event.data.settings);
+      }
+    };
+    
+    window.addEventListener('message', responseHandler);
+    
+    // Send the request
+    window.postMessage({
+      source: 'injected-script',
+      action: 'listAllSettings'
+    }, '*');
+    
+    // Timeout after 1 second
+    setTimeout(() => {
+      window.removeEventListener('message', responseHandler);
+      resolve({});
+    }, 1000);
+  });
 }
 
 document.createElement = function (tagName, ...args) {
@@ -276,11 +318,12 @@ setTimeout(() => {
   
   // Load and apply saved setting for current song if available
   if (currentSongId && songInfo.title !== 'Not playing') {
-    const savedSetting = loadSongSetting(currentSongId);
-    if (savedSetting) {
-      console.log(`🔄 Applying saved setting for current song "${currentSongId}":`, savedSetting);
-      applyEffectByName(savedSetting.name);
-    }
+    loadSongSetting(currentSongId).then((savedSetting) => {
+      if (savedSetting) {
+        console.log(`🔄 Applying saved setting for current song "${currentSongId}":`, savedSetting);
+        applyEffectByName(savedSetting.name);
+      }
+    });
   }
   
   console.log("✅ Tunevo running.");
@@ -302,12 +345,13 @@ window.addEventListener('message', function(event) {
                 slowed();
                 break;
             case 'getCurrentSetting':
-                const currentSetting = getCurrentSongSetting();
-                window.postMessage({
-                    source: 'injected-script',
-                    action: 'currentSetting',
-                    setting: currentSetting
-                }, '*');
+                getCurrentSongSetting().then((currentSetting) => {
+                    window.postMessage({
+                        source: 'injected-script',
+                        action: 'currentSetting',
+                        setting: currentSetting
+                    }, '*');
+                });
                 break;
             case 'clearCurrentSetting':
                 if (currentSongId) {
@@ -320,12 +364,13 @@ window.addEventListener('message', function(event) {
                 }, '*');
                 break;
             case 'listAllSettings':
-                const allSettings = listAllSavedSettings();
-                window.postMessage({
-                    source: 'injected-script',
-                    action: 'allSettings',
-                    settings: allSettings
-                }, '*');
+                listAllSavedSettings().then((allSettings) => {
+                    window.postMessage({
+                        source: 'injected-script',
+                        action: 'allSettings',
+                        settings: allSettings
+                    }, '*');
+                });
                 break;
             default:
                 console.log('Unknown action:', event.data.action);

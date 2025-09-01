@@ -3,6 +3,7 @@
   "description": "🎧 Tunevo is a Chrome extension that lets you add effects like Slowed + Reverb or Nightcore to your Spotify songs — and it remembers your choice for each song.",
   "version": "1.0",
   "manifest_version": 3,
+  "permissions": ["storage"],
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -10,10 +11,6 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "32": "icons/icon32.png"
-    },
     "default_popup": "src/popup/index.html"
   },
   "content_scripts": [
