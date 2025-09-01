@@ -1,5 +1,5 @@
 //intercept new audio and video elements
-const originalCreateElement = document.createElement;
+const originalCreateElement = document.createElement; 
 const spotifyPlaybackEls = [];
 
 // State management for current effect
@@ -357,6 +357,8 @@ window.addEventListener('message', function(event) {
                 if (currentSongId) {
                     clearSongSetting(currentSongId);
                 }
+                // Apply normal speed when clearing a saved setting
+                applyNormalSpeedWithoutSaving();
                 window.postMessage({
                     source: 'injected-script',
                     action: 'settingCleared',
