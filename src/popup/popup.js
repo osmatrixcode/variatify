@@ -9,6 +9,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearSettingBtn = document.getElementById('clearSettingBtn');
     const debugBtn = document.getElementById('debugBtn');
 
+    // Get streaming mode elements
+    const streamingToggle = document.getElementById('streamingToggle');
+    const rateSelector = document.getElementById('rateSelector');
+    const streamingRate = document.getElementById('streamingRate');
+    
+    // Flag to track if injected script is ready
+    let injectedScriptReady = false;
+    
+    console.log('🔧 Found streaming elements:', {
+        streamingToggle: !!streamingToggle,
+        rateSelector: !!rateSelector,
+        streamingRate: !!streamingRate
+    });
+
     // Get song info elements
     const songTitle = document.getElementById('songTitle');
     const songArtist = document.getElementById('songArtist');
@@ -16,31 +30,101 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load current song info when popup opens
     loadCurrentSong();
+    
+    // Load streaming mode state with a delay to ensure injected script is ready
+    // First try to get current setting to see if injected script is ready
+    setTimeout(() => {
+        console.log('🔧 Checking if injected script is ready...');
+        sendMessageToContentScript('getCurrentSetting');
+        
+        // Wait a bit more for the response, then load streaming mode state
+        // Also add a timeout to prevent infinite waiting
+        setTimeout(() => {
+            if (!injectedScriptReady) {
+                console.log('🔧 Injected script not ready after timeout, proceeding anyway...');
+                injectedScriptReady = true;
+            }
+            loadStreamingModeState();
+            
+            // Add a periodic check to ensure streaming rate is correct
+            setTimeout(() => {
+                if (injectedScriptReady) {
+                    console.log('🔧 Periodic check: verifying streaming rate is correct...');
+                    sendMessageToContentScript('getCurrentSetting');
+                }
+            }, 2000);
+        }, 1000);
+    }, 300);
 
     // Add event listeners
     speedUpBtn.addEventListener('click', function() {
-        sendMessageToContentScript('speedUp');
-        showNotification('Speed Up applied!');
-        setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        if (!streamingToggle.checked) {
+            sendMessageToContentScript('speedUp');
+            showNotification('Speed Up applied!');
+            setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        } else {
+            showNotification('Streaming mode is active! Disable it first to use per-song settings.');
+        }
     });
 
     normalSpeedBtn.addEventListener('click', function() {
-        sendMessageToContentScript('normalSpeed');
-        showNotification('Normal Speed applied!');
-        setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        if (!streamingToggle.checked) {
+            sendMessageToContentScript('normalSpeed');
+            showNotification('Normal Speed applied!');
+            setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        } else {
+            showNotification('Streaming mode is active! Disable it first to use per-song settings.');
+        }
     });
 
     slowedBtn.addEventListener('click', function() {
-        sendMessageToContentScript('slowed');
-        showNotification('Slowed applied!');
-        setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        if (!streamingToggle.checked) {
+            sendMessageToContentScript('slowed');
+            showNotification('Slowed applied!');
+            setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        } else {
+            showNotification('Streaming mode is active! Disable it first to use per-song settings.');
+        }
     });
 
+    // Streaming mode toggle
+    streamingToggle.addEventListener('change', function() {
+        console.log('🔧 Streaming toggle changed:', this.checked);
+        const isEnabled = this.checked;
+        rateSelector.style.display = isEnabled ? 'flex' : 'none';
+        
+        if (isEnabled) {
+            const rate = streamingRate.value;
+            console.log('🔧 Enabling streaming mode with rate:', rate);
+            sendMessageToContentScript('enableStreamingMode', { rate: rate });
+            showNotification(`Streaming mode enabled with ${rate} playback!`);
+        } else {
+            console.log('🔧 Disabling streaming mode');
+            sendMessageToContentScript('disableStreamingMode');
+            showNotification('Streaming mode disabled! Restored per-song settings.');
+            setTimeout(loadCurrentSetting, 500);
+        }
+        
+        // Save streaming mode state
+        saveStreamingModeState();
+    });
 
+    // Streaming rate change
+    streamingRate.addEventListener('change', function() {
+        if (streamingToggle.checked) {
+            const rate = streamingRate.value;
+            sendMessageToContentScript('updateStreamingRate', { rate: rate });
+            showNotification(`Streaming rate updated to ${rate}!`);
+        }
+    });
 
     clearSettingBtn.addEventListener('click', function() {
-        sendMessageToContentScript('clearCurrentSetting');
-        showNotification('Setting cleared!');
+        if (!streamingToggle.checked) {
+            sendMessageToContentScript('clearCurrentSetting');
+            showNotification('Setting cleared!');
+        } else {
+            showNotification('Streaming mode is active! Disable it first to clear per-song settings.');
+        }
     });
 
     debugBtn.addEventListener('click', function() {
@@ -51,12 +135,45 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         if (request.source === 'content-script') {
             if (request.action === 'currentSetting') {
+                console.log('🔧 Received currentSetting message:', request.data.setting);
+                injectedScriptReady = true; // Mark injected script as ready
                 updateSettingDisplay(request.data.setting);
+                
+                // If this is a streaming mode setting, update the streaming UI accordingly
+                if (request.data.setting && request.data.setting.name === 'streaming') {
+                    console.log('🔧 Updating streaming UI for streaming mode setting');
+                    const streamingToggle = document.getElementById('streamingToggle');
+                    const rateSelector = document.getElementById('rateSelector');
+                    const streamingRate = document.getElementById('streamingRate');
+                    
+                    // Update UI to reflect current streaming state
+                    streamingToggle.checked = true;
+                    streamingRate.value = request.data.setting.rate;
+                    rateSelector.style.display = 'flex';
+                    
+                    console.log('🔧 Updated streaming UI:', {
+                        toggleChecked: streamingToggle.checked,
+                        rateValue: streamingRate.value,
+                        rateSelectorDisplay: rateSelector.style.display
+                    });
+                    
+                    // Save the current streaming state to storage
+                    saveStreamingModeState();
+                    
+                    // Verify the streaming rate is correctly set
+                    console.log('🔧 Verifying streaming rate after update:', {
+                        expectedRate: request.data.setting.rate,
+                        actualRate: streamingRate.value,
+                        options: Array.from(streamingRate.options).map(opt => ({ value: opt.value, selected: opt.selected }))
+                    });
+                }
             } else if (request.action === 'settingCleared') {
                 updateSettingDisplay(null);
             } else if (request.action === 'allSettings') {
                 console.log('All saved settings:', request.data.settings);
                 showNotification(`Found ${Object.keys(request.data.settings).length} saved settings`);
+            } else if (request.action === 'streamingModeState') {
+                updateStreamingModeDisplay(request.data);
             }
         }
     });
@@ -93,15 +210,23 @@ function updateSongDisplay(title) {
     songArtist.textContent = ''; // No longer showing artist
 }
 
-function sendMessageToContentScript(action) {
+function sendMessageToContentScript(action, data = null) {
+    console.log('🔧 sendMessageToContentScript called with:', action, data);
     // Get the active tab and send message to content script
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
         const activeTab = tabs[0];
         
-        chrome.tabs.sendMessage(activeTab.id, {
+        const message = {
             action: action,
             source: 'popup'
-        }, function(response) {
+        };
+        
+        if (data) {
+            message.data = data;
+        }
+        
+        console.log('🔧 Sending message to tab:', activeTab.id, message);
+        chrome.tabs.sendMessage(activeTab.id, message, function(response) {
             if (chrome.runtime.lastError) {
                 console.error('Error sending message:', chrome.runtime.lastError);
             } else {
@@ -184,4 +309,90 @@ function showNotification(message) {
             document.body.removeChild(notification);
         }, 300);
     }, 2000);
+}
+
+// Streaming mode state management
+function saveStreamingModeState() {
+    const streamingToggle = document.getElementById('streamingToggle');
+    const streamingRate = document.getElementById('streamingRate');
+    
+    const state = {
+        enabled: streamingToggle.checked,
+        rate: streamingRate.value
+    };
+    
+    chrome.storage.local.set({ 'tunevo_streaming_mode': state }, function() {
+        console.log('Streaming mode state saved:', state);
+    });
+}
+
+function loadStreamingModeState() {
+    console.log('🔧 loadStreamingModeState called');
+    chrome.storage.local.get('tunevo_streaming_mode', function(result) {
+        const state = result.tunevo_streaming_mode || { enabled: false, rate: 'normal' };
+        console.log('🔧 Loaded streaming mode state from storage:', state);
+        
+        const streamingToggle = document.getElementById('streamingToggle');
+        const rateSelector = document.getElementById('rateSelector');
+        const streamingRate = document.getElementById('streamingRate');
+        
+        streamingToggle.checked = state.enabled;
+        
+        // Explicitly set the streaming rate value to ensure it's not defaulting to first option
+        streamingRate.value = state.rate;
+        
+        // Double-check that the value was set correctly
+        if (streamingRate.value !== state.rate) {
+            console.log('🔧 Warning: streamingRate.value was not set correctly, forcing it...');
+            // Force set the value by finding the option and selecting it
+            for (let option of streamingRate.options) {
+                if (option.value === state.rate) {
+                    option.selected = true;
+                    break;
+                }
+            }
+        }
+        
+        rateSelector.style.display = state.enabled ? 'flex' : 'none';
+        
+        console.log('🔧 Updated UI elements:', {
+            toggleChecked: streamingToggle.checked,
+            rateValue: streamingRate.value,
+            rateSelectorDisplay: rateSelector.style.display
+        });
+        
+        // If streaming mode was enabled, restore it and also get current state from injected script
+        if (state.enabled) {
+            console.log('🔧 Streaming mode was enabled, restoring...');
+            
+            // Wait for injected script to be ready before proceeding
+            if (!injectedScriptReady) {
+                console.log('🔧 Injected script not ready yet, waiting...');
+                setTimeout(() => loadStreamingModeState(), 100);
+                return;
+            }
+            
+            // First, get the current streaming state from the injected script to ensure sync
+            console.log('🔧 Sending getCurrentSetting message...');
+            sendMessageToContentScript('getCurrentSetting');
+            
+            // Wait a bit before enabling streaming mode to allow getCurrentSetting to complete
+            setTimeout(() => {
+                console.log('🔧 Sending enableStreamingMode message...');
+                sendMessageToContentScript('enableStreamingMode', { rate: state.rate });
+            }, 100);
+        } else {
+            console.log('🔧 Streaming mode was not enabled');
+        }
+    });
+}
+
+function updateStreamingModeDisplay(data) {
+    const streamingToggle = document.getElementById('streamingToggle');
+    const rateSelector = document.getElementById('rateSelector');
+    const streamingRate = document.getElementById('streamingRate');
+    
+    streamingToggle.checked = data.enabled;
+    streamingRate.value = data.rate;
+    rateSelector.style.display = data.enabled ? 'flex' : 'none';
 }

@@ -80,6 +80,15 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             
             // Don't send immediate response, wait for injected script response
             return true; // Keep message channel open
+        } else if (request.action === 'enableStreamingMode' || request.action === 'disableStreamingMode' || request.action === 'updateStreamingRate') {
+            // Forward streaming mode messages to the injected script
+            window.postMessage({
+                action: request.action,
+                data: request.data,
+                source: 'content-script'
+            }, '*');
+            
+            sendResponse({status: 'Streaming mode message forwarded to injected script'});
         } else {
             // Forward other messages to the injected script
             window.postMessage({
@@ -177,6 +186,7 @@ window.addEventListener('message', function(event) {
         
         // Handle specific responses that need to be sent back to popup
         if (event.data.action === 'currentSetting' || event.data.action === 'settingCleared' || event.data.action === 'allSettings') {
+            console.log('🔧 Forwarding message to popup:', event.data.action, event.data);
             // Send response back to popup
             chrome.runtime.sendMessage({
                 source: 'content-script',
