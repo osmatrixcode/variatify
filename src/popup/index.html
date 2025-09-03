@@ -33,6 +33,31 @@
         </div>
       </header>
 
+      <!-- Streaming Mode Section -->
+      <div class="streaming-mode">
+        <div class="streaming-header">
+          <h3>🎵 Streaming Mode</h3>
+          <p>Apply same playback rate to all songs</p>
+        </div>
+        <div class="streaming-controls">
+          <div class="toggle-container">
+            <label class="toggle-switch">
+              <input type="checkbox" id="streamingToggle">
+              <span class="slider"></span>
+            </label>
+            <span class="toggle-label">Enable Streaming Mode</span>
+          </div>
+          <div class="rate-selector" id="rateSelector" style="display: none;">
+            <label for="streamingRate">Playback Rate:</label>
+            <select id="streamingRate">
+              <option value="slowed">Slowed (0.8x)</option>
+              <option value="normal" selected>Normal (1.0x)</option>
+              <option value="speedUp">Speed Up (1.25x)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div class="controls">
         <div class="control-group">
           <button id="speedUpId" class="control-btn speed-up">

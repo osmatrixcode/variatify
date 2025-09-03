@@ -12,6 +12,12 @@ let currentEffect = {
 // Current song tracking
 let currentSongId = null;
 
+// Streaming mode state
+let streamingMode = {
+  enabled: false,
+  rate: 'normal'
+};
+
 // Storage functions that communicate with content script
 function getSongId(title) {
   return title.toLowerCase().trim();
@@ -122,17 +128,23 @@ function checkForSongChange() {
     console.log(`🎵 Song changed from "${currentSongId}" to "${newSongId}"`);
     currentSongId = newSongId;
     
-    // Load and apply saved setting for this song
-    loadSongSetting(newSongId).then((savedSetting) => {
-      if (savedSetting) {
-        console.log(`🔄 Applying saved setting for "${newSongId}":`, savedSetting);
-        applyEffectByName(savedSetting.name);
-      } else {
-        console.log(`📝 No saved setting found for "${newSongId}", resetting to normal speed`);
-        // Reset to normal speed when no saved setting (don't save this as a setting)
-        applyNormalSpeedWithoutSaving();
-      }
-    });
+    // If streaming mode is enabled, apply streaming rate to new song
+    if (streamingMode.enabled) {
+      console.log(`🎵 Streaming mode active, applying ${streamingMode.rate} to new song "${newSongId}"`);
+      applyStreamingRate(streamingMode.rate);
+    } else {
+      // Load and apply saved setting for this song
+      loadSongSetting(newSongId).then((savedSetting) => {
+        if (savedSetting) {
+          console.log(`🔄 Applying saved setting for "${newSongId}":`, savedSetting);
+          applyEffectByName(savedSetting.name);
+        } else {
+          console.log(`📝 No saved setting found for "${newSongId}", resetting to normal speed`);
+          // Reset to normal speed when no saved setting (don't save this as a setting)
+          applyNormalSpeedWithoutSaving();
+        }
+      });
+    }
   }
   
   // Debug: Log current song info periodically (less verbose)
@@ -234,6 +246,25 @@ Object.defineProperty(HTMLMediaElement.prototype, "playbackRate", {
 
 // Enforce pitch + speed
 function applyTunevo(rate = null, pitch = null) {
+  // If streaming mode is enabled, use streaming rate instead of current effect
+  if (streamingMode.enabled && rate === null) {
+    console.log(`🎵 Streaming mode active, using streaming rate: ${streamingMode.rate}`);
+    switch(streamingMode.rate) {
+      case 'slowed':
+        rate = 0.8;
+        pitch = false;
+        break;
+      case 'normal':
+        rate = 1.0;
+        pitch = true;
+        break;
+      case 'speedUp':
+        rate = 1.25;
+        pitch = false;
+        break;
+    }
+  }
+  
   // Use current effect if no parameters provided
   const targetRate = rate !== null ? rate : currentEffect.rate;
   const targetPitch = pitch !== null ? pitch : currentEffect.pitch;
@@ -290,8 +321,97 @@ function applyNormalSpeedWithoutSaving() {
 }
 
 
+// Streaming mode functions
+function enableStreamingMode(rate) {
+  console.log('🔧 enableStreamingMode called with rate:', rate);
+  streamingMode.enabled = true;
+  streamingMode.rate = rate;
+  
+  // Update current effect to match streaming rate
+  switch(rate) {
+    case 'slowed':
+      currentEffect = { rate: 0.8, pitch: false, name: 'streaming_slowed' };
+      break;
+    case 'normal':
+      currentEffect = { rate: 1.0, pitch: true, name: 'streaming_normal' };
+      break;
+    case 'speedUp':
+      currentEffect = { rate: 1.25, pitch: false, name: 'streaming_speedUp' };
+      break;
+  }
+  
+  // Apply the streaming rate to all current playback elements
+  applyStreamingRate(rate);
+  
+  console.log(`🎵 Streaming mode enabled with ${rate} playback, currentEffect updated:`, currentEffect);
+}
 
+function disableStreamingMode() {
+  console.log('🔧 disableStreamingMode called');
+  streamingMode.enabled = false;
+  
+  // Restore per-song settings if available
+  if (currentSongId) {
+    loadSongSetting(currentSongId).then((savedSetting) => {
+      if (savedSetting) {
+        console.log(`🔄 Restoring saved setting for "${currentSongId}":`, savedSetting);
+        applyEffectByName(savedSetting.name);
+      } else {
+        console.log(`📝 No saved setting found for "${currentSongId}", resetting to normal speed`);
+        applyNormalSpeedWithoutSaving();
+      }
+    });
+  } else {
+    console.log(`📝 No current song ID, resetting to normal speed`);
+    applyNormalSpeedWithoutSaving();
+  }
+  
+  console.log("🎵 Streaming mode disabled, restored per-song settings");
+}
 
+function updateStreamingRate(rate) {
+  if (streamingMode.enabled) {
+    console.log('🔧 updateStreamingRate called with rate:', rate);
+    streamingMode.rate = rate;
+    
+    // Update current effect to match new streaming rate
+    switch(rate) {
+      case 'slowed':
+        currentEffect = { rate: 0.8, pitch: false, name: 'streaming_slowed' };
+        break;
+      case 'normal':
+        currentEffect = { rate: 1.0, pitch: true, name: 'streaming_normal' };
+        break;
+      case 'speedUp':
+        currentEffect = { rate: 1.25, pitch: false, name: 'streaming_speedUp' };
+        break;
+    }
+    
+    applyStreamingRate(rate);
+    console.log(`🎵 Streaming rate updated to ${rate}, currentEffect updated:`, currentEffect);
+  }
+}
+
+function applyStreamingRate(rate) {
+  console.log('🔧 applyStreamingRate called with rate:', rate);
+  switch(rate) {
+    case 'slowed':
+      console.log('🔧 Applying slowed rate: 0.8x');
+      applyTunevo(0.8, false);
+      break;
+    case 'normal':
+      console.log('🔧 Applying normal rate: 1.0x');
+      applyTunevo(1.0, true);
+      break;
+    case 'speedUp':
+      console.log('🔧 Applying speed up rate: 1.25x');
+      applyTunevo(1.25, false);
+      break;
+    default:
+      console.log('Unknown streaming rate:', rate);
+      applyTunevo(1.0, true);
+  }
+}
 
 // Initial delay + mutation observer
 const initTunevo = () => {
@@ -332,29 +452,54 @@ setTimeout(() => {
 // Listen for messages from content script
 window.addEventListener('message', function(event) {
     if (event.data.source === 'content-script') {
-        console.log('Received message from popup:', event.data.action);
+        console.log('Received message from popup:', event.data.action, event.data);
         
         switch(event.data.action) {
             case 'speedUp':
-                speedUp();
+                if (!streamingMode.enabled) {
+                    speedUp();
+                }
                 break;
             case 'normalSpeed':
-                normalSpeed();
+                if (!streamingMode.enabled) {
+                    normalSpeed();
+                }
                 break;
             case 'slowed':
-                slowed();
+                if (!streamingMode.enabled) {
+                    slowed();
+                }
+                break;
+            case 'enableStreamingMode':
+                console.log('🔧 Processing enableStreamingMode message:', event.data);
+                enableStreamingMode(event.data.data.rate);
+                break;
+            case 'disableStreamingMode':
+                disableStreamingMode();
+                break;
+            case 'updateStreamingRate':
+                updateStreamingRate(event.data.data.rate);
                 break;
             case 'getCurrentSetting':
-                getCurrentSongSetting().then((currentSetting) => {
+                if (streamingMode.enabled) {
+                    // Send streaming mode state instead of per-song setting
                     window.postMessage({
                         source: 'injected-script',
                         action: 'currentSetting',
-                        setting: currentSetting
+                        setting: { name: 'streaming', rate: streamingMode.rate }
                     }, '*');
-                });
+                } else {
+                    getCurrentSongSetting().then((currentSetting) => {
+                        window.postMessage({
+                            source: 'injected-script',
+                            action: 'currentSetting',
+                            setting: currentSetting
+                        }, '*');
+                    });
+                }
                 break;
             case 'clearCurrentSetting':
-                if (currentSongId) {
+                if (!streamingMode.enabled && currentSongId) {
                     clearSongSetting(currentSongId);
                 }
                 // Apply normal speed when clearing a saved setting
@@ -379,7 +524,7 @@ window.addEventListener('message', function(event) {
         }
         
         // Send response back to content script for regular actions
-        if (!['getCurrentSetting', 'clearCurrentSetting'].includes(event.data.action)) {
+        if (!['getCurrentSetting', 'clearCurrentSetting', 'enableStreamingMode', 'disableStreamingMode', 'updateStreamingRate'].includes(event.data.action)) {
             window.postMessage({
                 source: 'injected-script',
                 status: 'Action executed: ' + event.data.action

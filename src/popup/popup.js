@@ -9,6 +9,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearSettingBtn = document.getElementById('clearSettingBtn');
     const debugBtn = document.getElementById('debugBtn');
 
+    // Get streaming mode elements
+    const streamingToggle = document.getElementById('streamingToggle');
+    const rateSelector = document.getElementById('rateSelector');
+    const streamingRate = document.getElementById('streamingRate');
+    
+    console.log('🔧 Found streaming elements:', {
+        streamingToggle: !!streamingToggle,
+        rateSelector: !!rateSelector,
+        streamingRate: !!streamingRate
+    });
+
     // Get song info elements
     const songTitle = document.getElementById('songTitle');
     const songArtist = document.getElementById('songArtist');
@@ -16,31 +27,79 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load current song info when popup opens
     loadCurrentSong();
+    
+    // Load streaming mode state
+    loadStreamingModeState();
 
     // Add event listeners
     speedUpBtn.addEventListener('click', function() {
-        sendMessageToContentScript('speedUp');
-        showNotification('Speed Up applied!');
-        setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        if (!streamingToggle.checked) {
+            sendMessageToContentScript('speedUp');
+            showNotification('Speed Up applied!');
+            setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        } else {
+            showNotification('Streaming mode is active! Disable it first to use per-song settings.');
+        }
     });
 
     normalSpeedBtn.addEventListener('click', function() {
-        sendMessageToContentScript('normalSpeed');
-        showNotification('Normal Speed applied!');
-        setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        if (!streamingToggle.checked) {
+            sendMessageToContentScript('normalSpeed');
+            showNotification('Normal Speed applied!');
+            setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        } else {
+            showNotification('Streaming mode is active! Disable it first to use per-song settings.');
+        }
     });
 
     slowedBtn.addEventListener('click', function() {
-        sendMessageToContentScript('slowed');
-        showNotification('Slowed applied!');
-        setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        if (!streamingToggle.checked) {
+            sendMessageToContentScript('slowed');
+            showNotification('Slowed applied!');
+            setTimeout(loadCurrentSetting, 500); // Reload setting after applying
+        } else {
+            showNotification('Streaming mode is active! Disable it first to use per-song settings.');
+        }
     });
 
+    // Streaming mode toggle
+    streamingToggle.addEventListener('change', function() {
+        console.log('🔧 Streaming toggle changed:', this.checked);
+        const isEnabled = this.checked;
+        rateSelector.style.display = isEnabled ? 'flex' : 'none';
+        
+        if (isEnabled) {
+            const rate = streamingRate.value;
+            console.log('🔧 Enabling streaming mode with rate:', rate);
+            sendMessageToContentScript('enableStreamingMode', { rate: rate });
+            showNotification(`Streaming mode enabled with ${rate} playback!`);
+        } else {
+            console.log('🔧 Disabling streaming mode');
+            sendMessageToContentScript('disableStreamingMode');
+            showNotification('Streaming mode disabled! Restored per-song settings.');
+            setTimeout(loadCurrentSetting, 500);
+        }
+        
+        // Save streaming mode state
+        saveStreamingModeState();
+    });
 
+    // Streaming rate change
+    streamingRate.addEventListener('change', function() {
+        if (streamingToggle.checked) {
+            const rate = streamingRate.value;
+            sendMessageToContentScript('updateStreamingRate', { rate: rate });
+            showNotification(`Streaming rate updated to ${rate}!`);
+        }
+    });
 
     clearSettingBtn.addEventListener('click', function() {
-        sendMessageToContentScript('clearCurrentSetting');
-        showNotification('Setting cleared!');
+        if (!streamingToggle.checked) {
+            sendMessageToContentScript('clearCurrentSetting');
+            showNotification('Setting cleared!');
+        } else {
+            showNotification('Streaming mode is active! Disable it first to clear per-song settings.');
+        }
     });
 
     debugBtn.addEventListener('click', function() {
@@ -57,6 +116,8 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (request.action === 'allSettings') {
                 console.log('All saved settings:', request.data.settings);
                 showNotification(`Found ${Object.keys(request.data.settings).length} saved settings`);
+            } else if (request.action === 'streamingModeState') {
+                updateStreamingModeDisplay(request.data);
             }
         }
     });
@@ -93,15 +154,23 @@ function updateSongDisplay(title) {
     songArtist.textContent = ''; // No longer showing artist
 }
 
-function sendMessageToContentScript(action) {
+function sendMessageToContentScript(action, data = null) {
+    console.log('🔧 sendMessageToContentScript called with:', action, data);
     // Get the active tab and send message to content script
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
         const activeTab = tabs[0];
         
-        chrome.tabs.sendMessage(activeTab.id, {
+        const message = {
             action: action,
             source: 'popup'
-        }, function(response) {
+        };
+        
+        if (data) {
+            message.data = data;
+        }
+        
+        console.log('🔧 Sending message to tab:', activeTab.id, message);
+        chrome.tabs.sendMessage(activeTab.id, message, function(response) {
             if (chrome.runtime.lastError) {
                 console.error('Error sending message:', chrome.runtime.lastError);
             } else {
@@ -184,4 +253,48 @@ function showNotification(message) {
             document.body.removeChild(notification);
         }, 300);
     }, 2000);
+}
+
+// Streaming mode state management
+function saveStreamingModeState() {
+    const streamingToggle = document.getElementById('streamingToggle');
+    const streamingRate = document.getElementById('streamingRate');
+    
+    const state = {
+        enabled: streamingToggle.checked,
+        rate: streamingRate.value
+    };
+    
+    chrome.storage.local.set({ 'tunevo_streaming_mode': state }, function() {
+        console.log('Streaming mode state saved:', state);
+    });
+}
+
+function loadStreamingModeState() {
+    chrome.storage.local.get('tunevo_streaming_mode', function(result) {
+        const state = result.tunevo_streaming_mode || { enabled: false, rate: 'normal' };
+        
+        const streamingToggle = document.getElementById('streamingToggle');
+        const rateSelector = document.getElementById('rateSelector');
+        const streamingRate = document.getElementById('streamingRate');
+        
+        streamingToggle.checked = state.enabled;
+        streamingRate.value = state.rate;
+        rateSelector.style.display = state.enabled ? 'flex' : 'none';
+        
+        // If streaming mode was enabled, restore it
+        if (state.enabled) {
+            sendMessageToContentScript('enableStreamingMode', { rate: state.rate });
+        }
+    });
+}
+
+function updateStreamingModeDisplay(data) {
+    const streamingToggle = document.getElementById('streamingToggle');
+    const rateSelector = document.getElementById('rateSelector');
+    const streamingRate = document.getElementById('streamingRate');
+    
+    streamingToggle.checked = data.enabled;
+    streamingRate.value = data.rate;
+    rateSelector.style.display = data.enabled ? 'flex' : 'none';
 }
