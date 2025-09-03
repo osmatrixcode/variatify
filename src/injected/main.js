@@ -481,15 +481,19 @@ window.addEventListener('message', function(event) {
                 updateStreamingRate(event.data.data.rate);
                 break;
             case 'getCurrentSetting':
+                console.log('🔧 getCurrentSetting called, streamingMode.enabled:', streamingMode.enabled);
                 if (streamingMode.enabled) {
                     // Send streaming mode state instead of per-song setting
+                    const streamingSetting = { name: 'streaming', rate: streamingMode.rate };
+                    console.log('🔧 Sending streaming mode setting:', streamingSetting);
                     window.postMessage({
                         source: 'injected-script',
                         action: 'currentSetting',
-                        setting: { name: 'streaming', rate: streamingMode.rate }
+                        setting: streamingSetting
                     }, '*');
                 } else {
                     getCurrentSongSetting().then((currentSetting) => {
+                        console.log('🔧 Sending per-song setting:', currentSetting);
                         window.postMessage({
                             source: 'injected-script',
                             action: 'currentSetting',

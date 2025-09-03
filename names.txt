@@ -1,4 +1,4 @@
-melodify
+melodify ~ already exists (arabic music )
 smartify
 groovify
 harmonify

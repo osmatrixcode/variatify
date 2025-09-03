@@ -186,6 +186,7 @@ window.addEventListener('message', function(event) {
         
         // Handle specific responses that need to be sent back to popup
         if (event.data.action === 'currentSetting' || event.data.action === 'settingCleared' || event.data.action === 'allSettings') {
+            console.log('🔧 Forwarding message to popup:', event.data.action, event.data);
             // Send response back to popup
             chrome.runtime.sendMessage({
                 source: 'content-script',

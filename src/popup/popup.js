@@ -14,6 +14,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const rateSelector = document.getElementById('rateSelector');
     const streamingRate = document.getElementById('streamingRate');
     
+    // Flag to track if injected script is ready
+    let injectedScriptReady = false;
+    
     console.log('🔧 Found streaming elements:', {
         streamingToggle: !!streamingToggle,
         rateSelector: !!rateSelector,
@@ -28,8 +31,30 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load current song info when popup opens
     loadCurrentSong();
     
-    // Load streaming mode state
-    loadStreamingModeState();
+    // Load streaming mode state with a delay to ensure injected script is ready
+    // First try to get current setting to see if injected script is ready
+    setTimeout(() => {
+        console.log('🔧 Checking if injected script is ready...');
+        sendMessageToContentScript('getCurrentSetting');
+        
+        // Wait a bit more for the response, then load streaming mode state
+        // Also add a timeout to prevent infinite waiting
+        setTimeout(() => {
+            if (!injectedScriptReady) {
+                console.log('🔧 Injected script not ready after timeout, proceeding anyway...');
+                injectedScriptReady = true;
+            }
+            loadStreamingModeState();
+            
+            // Add a periodic check to ensure streaming rate is correct
+            setTimeout(() => {
+                if (injectedScriptReady) {
+                    console.log('🔧 Periodic check: verifying streaming rate is correct...');
+                    sendMessageToContentScript('getCurrentSetting');
+                }
+            }, 2000);
+        }, 1000);
+    }, 300);
 
     // Add event listeners
     speedUpBtn.addEventListener('click', function() {
@@ -110,7 +135,38 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         if (request.source === 'content-script') {
             if (request.action === 'currentSetting') {
+                console.log('🔧 Received currentSetting message:', request.data.setting);
+                injectedScriptReady = true; // Mark injected script as ready
                 updateSettingDisplay(request.data.setting);
+                
+                // If this is a streaming mode setting, update the streaming UI accordingly
+                if (request.data.setting && request.data.setting.name === 'streaming') {
+                    console.log('🔧 Updating streaming UI for streaming mode setting');
+                    const streamingToggle = document.getElementById('streamingToggle');
+                    const rateSelector = document.getElementById('rateSelector');
+                    const streamingRate = document.getElementById('streamingRate');
+                    
+                    // Update UI to reflect current streaming state
+                    streamingToggle.checked = true;
+                    streamingRate.value = request.data.setting.rate;
+                    rateSelector.style.display = 'flex';
+                    
+                    console.log('🔧 Updated streaming UI:', {
+                        toggleChecked: streamingToggle.checked,
+                        rateValue: streamingRate.value,
+                        rateSelectorDisplay: rateSelector.style.display
+                    });
+                    
+                    // Save the current streaming state to storage
+                    saveStreamingModeState();
+                    
+                    // Verify the streaming rate is correctly set
+                    console.log('🔧 Verifying streaming rate after update:', {
+                        expectedRate: request.data.setting.rate,
+                        actualRate: streamingRate.value,
+                        options: Array.from(streamingRate.options).map(opt => ({ value: opt.value, selected: opt.selected }))
+                    });
+                }
             } else if (request.action === 'settingCleared') {
                 updateSettingDisplay(null);
             } else if (request.action === 'allSettings') {
@@ -271,20 +327,62 @@ function saveStreamingModeState() {
 }
 
 function loadStreamingModeState() {
+    console.log('🔧 loadStreamingModeState called');
     chrome.storage.local.get('tunevo_streaming_mode', function(result) {
         const state = result.tunevo_streaming_mode || { enabled: false, rate: 'normal' };
+        console.log('🔧 Loaded streaming mode state from storage:', state);
         
         const streamingToggle = document.getElementById('streamingToggle');
         const rateSelector = document.getElementById('rateSelector');
         const streamingRate = document.getElementById('streamingRate');
         
         streamingToggle.checked = state.enabled;
+        
+        // Explicitly set the streaming rate value to ensure it's not defaulting to first option
         streamingRate.value = state.rate;
+        
+        // Double-check that the value was set correctly
+        if (streamingRate.value !== state.rate) {
+            console.log('🔧 Warning: streamingRate.value was not set correctly, forcing it...');
+            // Force set the value by finding the option and selecting it
+            for (let option of streamingRate.options) {
+                if (option.value === state.rate) {
+                    option.selected = true;
+                    break;
+                }
+            }
+        }
+        
         rateSelector.style.display = state.enabled ? 'flex' : 'none';
         
-        // If streaming mode was enabled, restore it
+        console.log('🔧 Updated UI elements:', {
+            toggleChecked: streamingToggle.checked,
+            rateValue: streamingRate.value,
+            rateSelectorDisplay: rateSelector.style.display
+        });
+        
+        // If streaming mode was enabled, restore it and also get current state from injected script
         if (state.enabled) {
-            sendMessageToContentScript('enableStreamingMode', { rate: state.rate });
+            console.log('🔧 Streaming mode was enabled, restoring...');
+            
+            // Wait for injected script to be ready before proceeding
+            if (!injectedScriptReady) {
+                console.log('🔧 Injected script not ready yet, waiting...');
+                setTimeout(() => loadStreamingModeState(), 100);
+                return;
+            }
+            
+            // First, get the current streaming state from the injected script to ensure sync
+            console.log('🔧 Sending getCurrentSetting message...');
+            sendMessageToContentScript('getCurrentSetting');
+            
+            // Wait a bit before enabling streaming mode to allow getCurrentSetting to complete
+            setTimeout(() => {
+                console.log('🔧 Sending enableStreamingMode message...');
+                sendMessageToContentScript('enableStreamingMode', { rate: state.rate });
+            }, 100);
+        } else {
+            console.log('🔧 Streaming mode was not enabled');
         }
     });
 }
