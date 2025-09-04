@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const slowedBtn = document.getElementById('slowedId');
 
     const clearSettingBtn = document.getElementById('clearSettingBtn');
-    const debugBtn = document.getElementById('debugBtn');
 
     // Get streaming mode elements
     const streamingToggle = document.getElementById('streamingToggle');
@@ -127,9 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    debugBtn.addEventListener('click', function() {
-        sendMessageToContentScript('listAllSettings');
-    });
+
 
     // Listen for messages from content script
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
@@ -169,9 +166,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else if (request.action === 'settingCleared') {
                 updateSettingDisplay(null);
-            } else if (request.action === 'allSettings') {
-                console.log('All saved settings:', request.data.settings);
-                showNotification(`Found ${Object.keys(request.data.settings).length} saved settings`);
             } else if (request.action === 'streamingModeState') {
                 updateStreamingModeDisplay(request.data);
             }
@@ -254,7 +248,6 @@ function loadCurrentSetting() {
 function updateSettingDisplay(setting) {
     const settingText = document.getElementById('settingText');
     const clearSettingBtn = document.getElementById('clearSettingBtn');
-    const debugBtn = document.getElementById('debugBtn');
     
     if (setting) {
         const settingNames = {
@@ -265,11 +258,9 @@ function updateSettingDisplay(setting) {
         
         settingText.textContent = `Saved: ${settingNames[setting.name] || setting.name}`;
         clearSettingBtn.style.display = 'inline-block';
-        debugBtn.style.display = 'inline-block';
     } else {
         settingText.textContent = 'No saved setting';
         clearSettingBtn.style.display = 'none';
-        debugBtn.style.display = 'inline-block'; // Always show debug button
     }
 }
 

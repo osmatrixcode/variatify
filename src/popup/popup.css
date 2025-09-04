@@ -234,21 +234,7 @@ input:checked + .slider:before {
   background: #e67e22;
 }
 
-.debug-btn {
-  background: #5c6ac4;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 2px 8px;
-  font-size: 10px;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  margin-left: 4px;
-}
 
-.debug-btn:hover {
-  background: #4a5bb8;
-}
 
 .controls {
   display: flex;
