@@ -234,21 +234,7 @@ input:checked + .slider:before {
   background: #e67e22;
 }
 
-.debug-btn {
-  background: #5c6ac4;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 2px 8px;
-  font-size: 10px;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  margin-left: 4px;
-}
 
-.debug-btn:hover {
-  background: #4a5bb8;
-}
 
 .controls {
   display: flex;
@@ -279,6 +265,27 @@ input:checked + .slider:before {
 
 .control-btn:active {
   transform: translateY(0);
+}
+
+.control-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #2a2a2a;
+  border-color: #444444;
+}
+
+.control-btn:disabled:hover {
+  border-color: #444444;
+  box-shadow: none;
+  transform: none;
+}
+
+.control-btn:disabled .btn-gif {
+  filter: grayscale(100%);
+}
+
+.control-btn:disabled span {
+  color: #888888;
 }
 
 .btn-content {
@@ -364,4 +371,36 @@ input:checked + .slider:before {
 
 .buy-me-coffee:active {
   transform: translateY(0);
+}
+
+/* Clear All Preferences Button */
+.clear-all-section {
+  margin-top: 20px;
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #333333;
+}
+
+.clear-all-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.clear-all-btn:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+}
+
+.clear-all-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
 }

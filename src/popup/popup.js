@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const slowedBtn = document.getElementById('slowedId');
 
     const clearSettingBtn = document.getElementById('clearSettingBtn');
-    const debugBtn = document.getElementById('debugBtn');
 
     // Get streaming mode elements
     const streamingToggle = document.getElementById('streamingToggle');
@@ -93,11 +92,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const isEnabled = this.checked;
         rateSelector.style.display = isEnabled ? 'flex' : 'none';
         
+        // Enable/disable control buttons based on streaming mode
+        updateControlButtonsState(isEnabled);
+        
         if (isEnabled) {
             const rate = streamingRate.value;
             console.log('🔧 Enabling streaming mode with rate:', rate);
             sendMessageToContentScript('enableStreamingMode', { rate: rate });
             showNotification(`Streaming mode enabled with ${rate} playback!`);
+            setTimeout(loadCurrentSetting, 500); // Refresh setting display
         } else {
             console.log('🔧 Disabling streaming mode');
             sendMessageToContentScript('disableStreamingMode');
@@ -115,6 +118,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const rate = streamingRate.value;
             sendMessageToContentScript('updateStreamingRate', { rate: rate });
             showNotification(`Streaming rate updated to ${rate}!`);
+            setTimeout(loadCurrentSetting, 500); // Refresh setting display
         }
     });
 
@@ -127,9 +131,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    debugBtn.addEventListener('click', function() {
-        sendMessageToContentScript('listAllSettings');
+    // Clear all preferences button
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    clearAllBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to clear ALL preferences? This will remove all saved settings and cannot be undone.')) {
+            clearAllPreferences();
+        }
     });
+
+
 
     // Listen for messages from content script
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
@@ -169,9 +179,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else if (request.action === 'settingCleared') {
                 updateSettingDisplay(null);
-            } else if (request.action === 'allSettings') {
-                console.log('All saved settings:', request.data.settings);
-                showNotification(`Found ${Object.keys(request.data.settings).length} saved settings`);
             } else if (request.action === 'streamingModeState') {
                 updateStreamingModeDisplay(request.data);
             }
@@ -254,22 +261,30 @@ function loadCurrentSetting() {
 function updateSettingDisplay(setting) {
     const settingText = document.getElementById('settingText');
     const clearSettingBtn = document.getElementById('clearSettingBtn');
-    const debugBtn = document.getElementById('debugBtn');
     
     if (setting) {
-        const settingNames = {
-            'speedUp': 'Speed Up',
-            'normalSpeed': 'Normal Speed',
-            'slowed': 'Slowed'
-        };
-        
-        settingText.textContent = `Saved: ${settingNames[setting.name] || setting.name}`;
-        clearSettingBtn.style.display = 'inline-block';
-        debugBtn.style.display = 'inline-block';
+        // Handle streaming mode setting differently
+        if (setting.name === 'streaming') {
+            const rateNames = {
+                'speedUp': 'Speed Up',
+                'normalSpeed': 'Normal Speed',
+                'slowed': 'Slowed'
+            };
+            settingText.textContent = `Streaming playback rate: ${rateNames[setting.rate] || setting.rate}`;
+            clearSettingBtn.style.display = 'none'; // Hide clear button for streaming mode
+        } else {
+            const settingNames = {
+                'speedUp': 'Speed Up',
+                'normalSpeed': 'Normal Speed',
+                'slowed': 'Slowed'
+            };
+            
+            settingText.textContent = `Saved: ${settingNames[setting.name] || setting.name}`;
+            clearSettingBtn.style.display = 'inline-block';
+        }
     } else {
         settingText.textContent = 'No saved setting';
         clearSettingBtn.style.display = 'none';
-        debugBtn.style.display = 'inline-block'; // Always show debug button
     }
 }
 
@@ -355,6 +370,9 @@ function loadStreamingModeState() {
         
         rateSelector.style.display = state.enabled ? 'flex' : 'none';
         
+        // Update control buttons state based on streaming mode
+        updateControlButtonsState(state.enabled);
+        
         console.log('🔧 Updated UI elements:', {
             toggleChecked: streamingToggle.checked,
             rateValue: streamingRate.value,
@@ -395,4 +413,75 @@ function updateStreamingModeDisplay(data) {
     streamingToggle.checked = data.enabled;
     streamingRate.value = data.rate;
     rateSelector.style.display = data.enabled ? 'flex' : 'none';
+    
+    // Update control buttons state based on streaming mode
+    updateControlButtonsState(data.enabled);
+}
+
+function updateControlButtonsState(streamingModeEnabled) {
+    const speedUpBtn = document.getElementById('speedUpId');
+    const normalSpeedBtn = document.getElementById('normalSpeedId');
+    const slowedBtn = document.getElementById('slowedId');
+    
+    // Disable buttons when streaming mode is enabled, enable when disabled
+    speedUpBtn.disabled = streamingModeEnabled;
+    normalSpeedBtn.disabled = streamingModeEnabled;
+    slowedBtn.disabled = streamingModeEnabled;
+}
+
+function clearAllPreferences() {
+    // Clear all chrome.storage.local data
+    chrome.storage.local.clear(function() {
+        if (chrome.runtime.lastError) {
+            console.error('Error clearing storage:', chrome.runtime.lastError);
+            showNotification('Error clearing preferences!');
+        } else {
+            console.log('All preferences cleared successfully');
+            showNotification('All preferences cleared!');
+            
+            // Reset UI to default state
+            resetUIToDefault();
+            
+            // Refresh the current tab to apply changes
+            refreshCurrentTab();
+            
+            // Close the popup
+            window.close();
+        }
+    });
+}
+
+function resetUIToDefault() {
+    // Reset streaming mode
+    const streamingToggle = document.getElementById('streamingToggle');
+    const rateSelector = document.getElementById('rateSelector');
+    const streamingRate = document.getElementById('streamingRate');
+    
+    streamingToggle.checked = false;
+    rateSelector.style.display = 'none';
+    streamingRate.value = 'normal';
+    
+    // Enable control buttons
+    updateControlButtonsState(false);
+    
+    // Reset setting display
+    updateSettingDisplay(null);
+    
+    // Reset song display
+    updateSongDisplay('Loading...');
+}
+
+function refreshCurrentTab() {
+    // Get the current active tab and refresh it
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        if (tabs[0]) {
+            chrome.tabs.reload(tabs[0].id, function() {
+                if (chrome.runtime.lastError) {
+                    console.error('Error refreshing tab:', chrome.runtime.lastError);
+                } else {
+                    console.log('Tab refreshed successfully');
+                }
+            });
+        }
+    });
 }

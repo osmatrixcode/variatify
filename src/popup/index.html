@@ -8,15 +8,7 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <div class="footer">
-      <a
-        href="https://www.buymeacoffee.com/tunevo"
-        target="_blank"
-        class="buy-me-coffee"
-      >
-        ☕ Buy me a coffee
-      </a>
-    </div>
+
     <!-- POPUP CONTENT -->
     <div class="app">
       <header class="header">
@@ -35,9 +27,6 @@
               style="display: none"
             >
               Clear
-            </button>
-            <button class="debug-btn" id="debugBtn" style="display: none">
-              Debug
             </button>
           </div>
         </div>
@@ -109,7 +98,14 @@
         </div>
       </div>
 
-      <div class="footer">
+      <!-- Clear All Preferences Button -->
+      <div class="clear-all-section">
+        <button id="clearAllBtn" class="clear-all-btn">
+          🗑️ Clear All Preferences
+        </button>
+      </div>
+
+      <!-- <div class="footer">
         <a
           href="https://www.buymeacoffee.com/tunevo"
           target="_blank"
@@ -117,7 +113,7 @@
         >
           ☕ Buy me a coffee
         </a>
-      </div>
+      </div> -->
     </div>
 
     <!-- First Time Modal -->
@@ -131,16 +127,7 @@
             Thanks for trying out Tunevo! If you find this extension helpful,
             consider supporting the development with a coffee ☕
           </p>
-          <div class="modal-actions">
-            <a
-              href="https://www.buymeacoffee.com/osmatrixcode"
-              target="_blank"
-              class="modal-buy-coffee"
-            >
-              ☕ Buy me a coffee
-            </a>
-            <button id="closeModalBtn" class="modal-close-btn">
-            </button>
+
           </div>
         </div>
       </div>
