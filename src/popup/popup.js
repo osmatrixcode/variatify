@@ -250,14 +250,25 @@ function updateSettingDisplay(setting) {
     const clearSettingBtn = document.getElementById('clearSettingBtn');
     
     if (setting) {
-        const settingNames = {
-            'speedUp': 'Speed Up',
-            'normalSpeed': 'Normal Speed',
-            'slowed': 'Slowed'
-        };
-        
-        settingText.textContent = `Saved: ${settingNames[setting.name] || setting.name}`;
-        clearSettingBtn.style.display = 'inline-block';
+        // Handle streaming mode setting differently
+        if (setting.name === 'streaming') {
+            const rateNames = {
+                'speedUp': 'Speed Up',
+                'normalSpeed': 'Normal Speed',
+                'slowed': 'Slowed'
+            };
+            settingText.textContent = `Streaming playback rate: ${rateNames[setting.rate] || setting.rate}`;
+            clearSettingBtn.style.display = 'none'; // Hide clear button for streaming mode
+        } else {
+            const settingNames = {
+                'speedUp': 'Speed Up',
+                'normalSpeed': 'Normal Speed',
+                'slowed': 'Slowed'
+            };
+            
+            settingText.textContent = `Saved: ${settingNames[setting.name] || setting.name}`;
+            clearSettingBtn.style.display = 'inline-block';
+        }
     } else {
         settingText.textContent = 'No saved setting';
         clearSettingBtn.style.display = 'none';
