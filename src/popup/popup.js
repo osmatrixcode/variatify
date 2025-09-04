@@ -131,6 +131,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Clear all preferences button
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    clearAllBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to clear ALL preferences? This will remove all saved settings and cannot be undone.')) {
+            clearAllPreferences();
+        }
+    });
+
 
 
     // Listen for messages from content script
@@ -419,4 +427,61 @@ function updateControlButtonsState(streamingModeEnabled) {
     speedUpBtn.disabled = streamingModeEnabled;
     normalSpeedBtn.disabled = streamingModeEnabled;
     slowedBtn.disabled = streamingModeEnabled;
+}
+
+function clearAllPreferences() {
+    // Clear all chrome.storage.local data
+    chrome.storage.local.clear(function() {
+        if (chrome.runtime.lastError) {
+            console.error('Error clearing storage:', chrome.runtime.lastError);
+            showNotification('Error clearing preferences!');
+        } else {
+            console.log('All preferences cleared successfully');
+            showNotification('All preferences cleared!');
+            
+            // Reset UI to default state
+            resetUIToDefault();
+            
+            // Refresh the current tab to apply changes
+            refreshCurrentTab();
+            
+            // Close the popup
+            window.close();
+        }
+    });
+}
+
+function resetUIToDefault() {
+    // Reset streaming mode
+    const streamingToggle = document.getElementById('streamingToggle');
+    const rateSelector = document.getElementById('rateSelector');
+    const streamingRate = document.getElementById('streamingRate');
+    
+    streamingToggle.checked = false;
+    rateSelector.style.display = 'none';
+    streamingRate.value = 'normal';
+    
+    // Enable control buttons
+    updateControlButtonsState(false);
+    
+    // Reset setting display
+    updateSettingDisplay(null);
+    
+    // Reset song display
+    updateSongDisplay('Loading...');
+}
+
+function refreshCurrentTab() {
+    // Get the current active tab and refresh it
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        if (tabs[0]) {
+            chrome.tabs.reload(tabs[0].id, function() {
+                if (chrome.runtime.lastError) {
+                    console.error('Error refreshing tab:', chrome.runtime.lastError);
+                } else {
+                    console.log('Tab refreshed successfully');
+                }
+            });
+        }
+    });
 }
