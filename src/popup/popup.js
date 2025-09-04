@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('🔧 Enabling streaming mode with rate:', rate);
             sendMessageToContentScript('enableStreamingMode', { rate: rate });
             showNotification(`Streaming mode enabled with ${rate} playback!`);
+            setTimeout(loadCurrentSetting, 500); // Refresh setting display
         } else {
             console.log('🔧 Disabling streaming mode');
             sendMessageToContentScript('disableStreamingMode');
@@ -114,6 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const rate = streamingRate.value;
             sendMessageToContentScript('updateStreamingRate', { rate: rate });
             showNotification(`Streaming rate updated to ${rate}!`);
+            setTimeout(loadCurrentSetting, 500); // Refresh setting display
         }
     });
 
