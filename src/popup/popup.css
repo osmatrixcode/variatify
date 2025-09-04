@@ -267,6 +267,27 @@ input:checked + .slider:before {
   transform: translateY(0);
 }
 
+.control-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #2a2a2a;
+  border-color: #444444;
+}
+
+.control-btn:disabled:hover {
+  border-color: #444444;
+  box-shadow: none;
+  transform: none;
+}
+
+.control-btn:disabled .btn-gif {
+  filter: grayscale(100%);
+}
+
+.control-btn:disabled span {
+  color: #888888;
+}
+
 .btn-content {
   display: flex;
   align-items: center;

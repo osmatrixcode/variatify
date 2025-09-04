@@ -92,6 +92,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const isEnabled = this.checked;
         rateSelector.style.display = isEnabled ? 'flex' : 'none';
         
+        // Enable/disable control buttons based on streaming mode
+        updateControlButtonsState(isEnabled);
+        
         if (isEnabled) {
             const rate = streamingRate.value;
             console.log('🔧 Enabling streaming mode with rate:', rate);
@@ -359,6 +362,9 @@ function loadStreamingModeState() {
         
         rateSelector.style.display = state.enabled ? 'flex' : 'none';
         
+        // Update control buttons state based on streaming mode
+        updateControlButtonsState(state.enabled);
+        
         console.log('🔧 Updated UI elements:', {
             toggleChecked: streamingToggle.checked,
             rateValue: streamingRate.value,
@@ -399,4 +405,18 @@ function updateStreamingModeDisplay(data) {
     streamingToggle.checked = data.enabled;
     streamingRate.value = data.rate;
     rateSelector.style.display = data.enabled ? 'flex' : 'none';
+    
+    // Update control buttons state based on streaming mode
+    updateControlButtonsState(data.enabled);
+}
+
+function updateControlButtonsState(streamingModeEnabled) {
+    const speedUpBtn = document.getElementById('speedUpId');
+    const normalSpeedBtn = document.getElementById('normalSpeedId');
+    const slowedBtn = document.getElementById('slowedId');
+    
+    // Disable buttons when streaming mode is enabled, enable when disabled
+    speedUpBtn.disabled = streamingModeEnabled;
+    normalSpeedBtn.disabled = streamingModeEnabled;
+    slowedBtn.disabled = streamingModeEnabled;
 }
