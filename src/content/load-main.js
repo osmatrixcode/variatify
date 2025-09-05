@@ -72,6 +72,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             const songInfo = getCurrentSongInfo();
             sendResponse({songInfo: songInfo});
         } else if (request.action === 'getCurrentSetting' || request.action === 'clearCurrentSetting' || request.action === 'listAllSettings') {
+            // Check authentication before processing
+            if (!checkContentScriptAuthentication()) {
+                sendResponse({error: 'Authentication required'});
+                return;
+            }
             // Forward these messages to the injected script and wait for response
             window.postMessage({
                 action: request.action,
@@ -81,6 +86,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             // Don't send immediate response, wait for injected script response
             return true; // Keep message channel open
         } else if (request.action === 'enableStreamingMode' || request.action === 'disableStreamingMode' || request.action === 'updateStreamingRate') {
+            // Check authentication before processing
+            if (!checkContentScriptAuthentication()) {
+                sendResponse({error: 'Authentication required'});
+                return;
+            }
             // Forward streaming mode messages to the injected script
             window.postMessage({
                 action: request.action,
@@ -90,6 +100,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             
             sendResponse({status: 'Streaming mode message forwarded to injected script'});
         } else {
+            // Check authentication before processing
+            if (!checkContentScriptAuthentication()) {
+                sendResponse({error: 'Authentication required'});
+                return;
+            }
             // Forward other messages to the injected script
             window.postMessage({
                 action: request.action,
@@ -200,8 +215,24 @@ window.addEventListener('message', function(event) {
 // Payment status indicator for Spotify pages
 const extpay = ExtPay("tunevo-test");
 
+// Check authentication status in content script
+function checkContentScriptAuthentication() {
+  // This will be set by the ExtPay user status check
+  console.log('🔐 Content script authentication:', window.contentScriptAuthenticated);
+  return window.contentScriptAuthenticated || false;
+}
+
 // Check user status and show appropriate indicator
 extpay.getUser().then((user) => {
+  // Set authentication status
+  const isTrialActive = user.trialStartedAt && (() => {
+    const now = new Date();
+    const trialEnd = new Date(user.trialStartedAt.getTime() + (7 * 24 * 60 * 60 * 1000));
+    return now < trialEnd;
+  })();
+  
+  window.contentScriptAuthenticated = user.paid || isTrialActive;
+  
   // Only show payment status if user is not paid and trial is expired
   if (!user.paid && user.trialStartedAt) {
     const now = new Date();
@@ -213,6 +244,9 @@ extpay.getUser().then((user) => {
   }
 }).catch((err) => {
   console.error('ExtPay error in content script:', err);
+  // FALLBACK: If ExtPay fails, assume user is authenticated for now
+  window.contentScriptAuthenticated = true;
+  console.log('🔐 Content script: ExtPay failed, allowing access as fallback');
 });
 
 function showPaymentPrompt() {

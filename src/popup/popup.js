@@ -31,27 +31,93 @@ function updatePaymentUI(user) {
   const manageBtn = document.getElementById('manageBtn');
 
   if (user.paid) {
-    paymentText.innerHTML = "🎉 Premium Active!";
+    paymentText.innerHTML = "🎉 Premium Lifetime Access!";
     trialBtn.style.display = "none";
     payBtn.style.display = "none";
     manageBtn.style.display = "inline-block";
+    enableExtensionFeatures();
   } else if (isTrialActive(user)) {
     const daysRemaining = getTrialDaysRemaining(user);
     paymentText.innerHTML = `⏰ Free Trial: ${daysRemaining} days left`;
     trialBtn.style.display = "none";
     payBtn.style.display = "inline-block";
     manageBtn.style.display = "none";
+    enableExtensionFeatures();
   } else if (user.trialStartedAt) {
     paymentText.innerHTML = "💳 Trial Expired - Upgrade Now!";
     trialBtn.style.display = "none";
     payBtn.style.display = "inline-block";
     manageBtn.style.display = "none";
+    disableExtensionFeatures();
   } else {
-    paymentText.innerHTML = "🚀 Start Your Free Trial!";
+    paymentText.innerHTML = "🔒 Sign up required to use Tunevo";
     trialBtn.style.display = "inline-block";
-    payBtn.style.display = "inline-block";
+    payBtn.style.display = "none";
     manageBtn.style.display = "none";
+    disableExtensionFeatures();
   }
+}
+
+// Enable extension features
+function enableExtensionFeatures() {
+  const controls = document.querySelector('.controls');
+  const streamingMode = document.querySelector('.streaming-mode');
+  const clearAllSection = document.querySelector('.clear-all-section');
+  
+  if (controls) controls.style.opacity = '1';
+  if (streamingMode) streamingMode.style.opacity = '1';
+  if (clearAllSection) clearAllSection.style.opacity = '1';
+  
+  // Enable all buttons
+  const buttons = document.querySelectorAll('.control-btn, .clear-btn, .clear-all-btn');
+  buttons.forEach(btn => {
+    btn.disabled = false;
+    btn.style.cursor = 'pointer';
+  });
+  
+  // Enable streaming toggle
+  const streamingToggle = document.getElementById('streamingToggle');
+  if (streamingToggle) {
+    streamingToggle.disabled = false;
+    streamingToggle.style.cursor = 'pointer';
+  }
+}
+
+// Disable extension features
+function disableExtensionFeatures() {
+  const controls = document.querySelector('.controls');
+  const streamingMode = document.querySelector('.streaming-mode');
+  const clearAllSection = document.querySelector('.clear-all-section');
+  
+  if (controls) controls.style.opacity = '0.5';
+  if (streamingMode) streamingMode.style.opacity = '0.5';
+  if (clearAllSection) clearAllSection.style.opacity = '0.5';
+  
+  // Disable all buttons
+  const buttons = document.querySelectorAll('.control-btn, .clear-btn, .clear-all-btn');
+  buttons.forEach(btn => {
+    btn.disabled = true;
+    btn.style.cursor = 'not-allowed';
+  });
+  
+  // Disable streaming toggle
+  const streamingToggle = document.getElementById('streamingToggle');
+  if (streamingToggle) {
+    streamingToggle.disabled = true;
+    streamingToggle.style.cursor = 'not-allowed';
+  }
+}
+
+// Check if user is authenticated (has trial or paid)
+function checkAuthentication() {
+  // This will be set by the ExtPay user status
+  console.log('🔐 Checking authentication:', window.userAuthenticated);
+  return window.userAuthenticated || false;
+}
+
+// Show authentication required message
+function showAuthRequiredMessage() {
+  showNotification('🔒 Please sign up for free trial to use Tunevo!');
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -111,6 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Add event listeners
     speedUpBtn.addEventListener('click', function() {
+        if (!checkAuthentication()) return;
         if (!streamingToggle.checked) {
             sendMessageToContentScript('speedUp');
             showNotification('Speed Up applied!');
@@ -121,6 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     normalSpeedBtn.addEventListener('click', function() {
+        if (!checkAuthentication()) return;
         if (!streamingToggle.checked) {
             sendMessageToContentScript('normalSpeed');
             showNotification('Normal Speed applied!');
@@ -131,6 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     slowedBtn.addEventListener('click', function() {
+        if (!checkAuthentication()) return;
         if (!streamingToggle.checked) {
             sendMessageToContentScript('slowed');
             showNotification('Slowed applied!');
@@ -142,6 +211,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Streaming mode toggle
     streamingToggle.addEventListener('change', function() {
+        if (!checkAuthentication()) {
+            this.checked = false; // Reset toggle
+            showAuthRequiredMessage();
+            return;
+        }
         console.log('🔧 Streaming toggle changed:', this.checked);
         const isEnabled = this.checked;
         rateSelector.style.display = isEnabled ? 'flex' : 'none';
@@ -177,6 +251,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     clearSettingBtn.addEventListener('click', function() {
+        if (!checkAuthentication()) {
+            showAuthRequiredMessage();
+            return;
+        }
         if (!streamingToggle.checked) {
             sendMessageToContentScript('clearCurrentSetting');
             showNotification('Setting cleared!');
@@ -188,6 +266,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear all preferences button
     const clearAllBtn = document.getElementById('clearAllBtn');
     clearAllBtn.addEventListener('click', function() {
+        if (!checkAuthentication()) {
+            showAuthRequiredMessage();
+            return;
+        }
         if (confirm('Are you sure you want to clear ALL preferences? This will remove all saved settings and cannot be undone.')) {
             clearAllPreferences();
         }
@@ -216,21 +298,33 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load user payment status
     extpay.getUser()
         .then((user) => {
+            console.log('🔐 ExtPay user data:', user);
+            // Set authentication status
+            const isAuthenticated = user.paid || isTrialActive(user);
+            window.userAuthenticated = isAuthenticated;
+            console.log('🔐 User authenticated:', isAuthenticated);
             updatePaymentUI(user);
         })
         .catch((err) => {
             console.error('ExtPay error:', err);
-            document.getElementById('paymentText').innerHTML = "Error loading payment status";
+            // FALLBACK: If ExtPay fails, assume user is authenticated for now
+            // This prevents breaking the extension if ExtPay is down
+            window.userAuthenticated = true;
+            console.log('🔐 ExtPay failed, allowing access as fallback');
+            document.getElementById('paymentText').innerHTML = "🚀 Tunevo Ready!";
+            enableExtensionFeatures();
         });
 
     // Listen for payment events
     extpay.onTrialStarted.addListener((user) => {
         console.log('Trial started!', user);
+        window.userAuthenticated = true;
         updatePaymentUI(user);
     });
 
     extpay.onPaid.addListener((user) => {
         console.log('User paid!', user);
+        window.userAuthenticated = true;
         updatePaymentUI(user);
     });
 
