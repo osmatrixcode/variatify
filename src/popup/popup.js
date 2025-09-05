@@ -63,13 +63,15 @@ function enableExtensionFeatures() {
   const controls = document.querySelector('.controls');
   const streamingMode = document.querySelector('.streaming-mode');
   const clearAllSection = document.querySelector('.clear-all-section');
+  const importExportSection = document.querySelector('.import-export-section');
   
   if (controls) controls.style.opacity = '1';
   if (streamingMode) streamingMode.style.opacity = '1';
   if (clearAllSection) clearAllSection.style.opacity = '1';
+  if (importExportSection) importExportSection.style.opacity = '1';
   
   // Enable all buttons
-  const buttons = document.querySelectorAll('.control-btn, .clear-btn, .clear-all-btn');
+  const buttons = document.querySelectorAll('.control-btn, .clear-btn, .clear-all-btn, .import-export-btn');
   buttons.forEach(btn => {
     btn.disabled = false;
     btn.style.cursor = 'pointer';
@@ -88,13 +90,15 @@ function disableExtensionFeatures() {
   const controls = document.querySelector('.controls');
   const streamingMode = document.querySelector('.streaming-mode');
   const clearAllSection = document.querySelector('.clear-all-section');
+  const importExportSection = document.querySelector('.import-export-section');
   
   if (controls) controls.style.opacity = '0.5';
   if (streamingMode) streamingMode.style.opacity = '0.5';
   if (clearAllSection) clearAllSection.style.opacity = '0.5';
+  if (importExportSection) importExportSection.style.opacity = '0.5';
   
   // Disable all buttons
-  const buttons = document.querySelectorAll('.control-btn, .clear-btn, .clear-all-btn');
+  const buttons = document.querySelectorAll('.control-btn, .clear-btn, .clear-all-btn, .import-export-btn');
   buttons.forEach(btn => {
     btn.disabled = true;
     btn.style.cursor = 'not-allowed';
@@ -272,6 +276,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (confirm('Are you sure you want to clear ALL preferences? This will remove all saved settings and cannot be undone.')) {
             clearAllPreferences();
+        }
+    });
+
+    // Import/Export buttons
+    const exportBtn = document.getElementById('exportBtn');
+    const importBtn = document.getElementById('importBtn');
+    const importFileInput = document.getElementById('importFileInput');
+
+    exportBtn.addEventListener('click', function() {
+        if (!checkAuthentication()) {
+            showAuthRequiredMessage();
+            return;
+        }
+        exportPreferences();
+    });
+
+    importBtn.addEventListener('click', function() {
+        if (!checkAuthentication()) {
+            showAuthRequiredMessage();
+            return;
+        }
+        importFileInput.click();
+    });
+
+    importFileInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            importPreferences(file);
         }
     });
 
@@ -673,4 +705,92 @@ function refreshCurrentTab() {
             });
         }
     });
+}
+
+// Export preferences function
+function exportPreferences() {
+    console.log('📤 Exporting preferences...');
+    
+    // Get all relevant data from chrome.storage.local
+    chrome.storage.local.get(['tunevo_song_settings', 'tunevo_streaming_mode'], function(result) {
+        const exportData = {
+            version: '1.0',
+            exportDate: new Date().toISOString(),
+            songSettings: result.tunevo_song_settings || {},
+            streamingMode: result.tunevo_streaming_mode || { enabled: false, rate: 'normal' }
+        };
+        
+        // Create and download the file
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `tunevo-preferences-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        const songCount = Object.keys(exportData.songSettings).length;
+        showNotification(`✅ Exported ${songCount} song preferences!`);
+        console.log('📤 Export completed:', exportData);
+    });
+}
+
+// Import preferences function
+function importPreferences(file) {
+    console.log('📥 Importing preferences from file:', file.name);
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importData = JSON.parse(e.target.result);
+            
+            // Validate the import data structure
+            if (!importData.version || !importData.songSettings || !importData.streamingMode) {
+                throw new Error('Invalid file format. Please select a valid Tunevo preferences file.');
+            }
+            
+            // Confirm import with user
+            const songCount = Object.keys(importData.songSettings).length;
+            const confirmMessage = `Import ${songCount} song preferences and streaming mode settings?\n\nThis will replace your current preferences.`;
+            
+            if (confirm(confirmMessage)) {
+                // Import the data
+                const dataToImport = {
+                    tunevo_song_settings: importData.songSettings,
+                    tunevo_streaming_mode: importData.streamingMode
+                };
+                
+                chrome.storage.local.set(dataToImport, function() {
+                    if (chrome.runtime.lastError) {
+                        console.error('Error importing preferences:', chrome.runtime.lastError);
+                        showNotification('❌ Error importing preferences!');
+                    } else {
+                        console.log('📥 Import completed successfully:', dataToImport);
+                        showNotification(`✅ Imported ${songCount} song preferences!`);
+                        
+                        // Refresh the UI to reflect imported settings
+                        loadStreamingModeState();
+                        loadCurrentSetting();
+                        
+                        // Refresh the current tab to apply changes
+                        refreshCurrentTab();
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error parsing import file:', error);
+            showNotification('❌ Invalid file format. Please select a valid Tunevo preferences file.');
+        }
+    };
+    
+    reader.onerror = function() {
+        console.error('Error reading file');
+        showNotification('❌ Error reading file. Please try again.');
+    };
+    
+    reader.readAsText(file);
 }
