@@ -27,12 +27,14 @@ function getTrialDaysRemaining(user) {
 function updatePaymentUI(user) {
   const paymentText = document.getElementById('paymentText');
   const trialBtn = document.getElementById('trialBtn');
+  const loginBtn = document.getElementById('loginBtn');
   const payBtn = document.getElementById('payBtn');
   const manageBtn = document.getElementById('manageBtn');
 
   if (user.paid) {
     paymentText.innerHTML = "🎉 Premium Lifetime Access!";
     trialBtn.style.display = "none";
+    loginBtn.style.display = "none";
     payBtn.style.display = "none";
     manageBtn.style.display = "inline-block";
     enableExtensionFeatures();
@@ -40,18 +42,21 @@ function updatePaymentUI(user) {
     const daysRemaining = getTrialDaysRemaining(user);
     paymentText.innerHTML = `⏰ Free Trial: ${daysRemaining} days left`;
     trialBtn.style.display = "none";
+    loginBtn.style.display = "none";
     payBtn.style.display = "inline-block";
     manageBtn.style.display = "none";
     enableExtensionFeatures();
   } else if (user.trialStartedAt) {
     paymentText.innerHTML = "💳 Trial Expired - Upgrade Now!";
     trialBtn.style.display = "none";
+    loginBtn.style.display = "none";
     payBtn.style.display = "inline-block";
     manageBtn.style.display = "none";
     disableExtensionFeatures();
   } else {
     paymentText.innerHTML = "🔒 Sign up required to use Tunevo";
     trialBtn.style.display = "inline-block";
+    loginBtn.style.display = "inline-block";
     payBtn.style.display = "none";
     manageBtn.style.display = "none";
     disableExtensionFeatures();
@@ -309,12 +314,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Payment button event listeners
     const trialBtn = document.getElementById('trialBtn');
+    const loginBtn = document.getElementById('loginBtn');
     const payBtn = document.getElementById('payBtn');
     const manageBtn = document.getElementById('manageBtn');
 
     trialBtn.addEventListener('click', function(evt) {
         evt.preventDefault();
         extpay.openTrialPage("7-day");
+    });
+
+    loginBtn.addEventListener('click', function(evt) {
+        evt.preventDefault();
+        extpay.openLoginPage();
     });
 
     payBtn.addEventListener('click', function(evt) {
