@@ -5,7 +5,7 @@
   "manifest_version": 3,
   "permissions": ["storage"],
     "background": {
-        "service_worker": "background.js"
+        "service_worker": "src/background.js"
     },
   "icons": {
     "32": "icons/icon32.png",
@@ -17,8 +17,13 @@
   },
   "content_scripts": [
     {
+      "matches": ["https://extensionpay.com/*"],
+      "js": ["src/ExtPay.js"],
+      "run_at": "document_start"
+    },
+    {
       "matches": ["https://open.spotify.com/*"],
-      "js": ["src/content/load-main.js"],
+      "js": ["src/ExtPay.js", "src/content/load-main.js"],
       "run_at": "document_idle"
     }
   ],

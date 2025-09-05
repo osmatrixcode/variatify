@@ -1,6 +1,12 @@
 // background.js
 
-importScripts('ExtPay.js') // or `import` / `require` if using a bundler
+importScripts('ExtPay.js')
 
-var extpay = ExtPay('tunevo-test'); // Careful! See note below
-extpay.startBackground(); 
+// Initialize ExtPay with your extension ID
+const extpay = ExtPay('tunevo-test');
+extpay.startBackground(); // Required to use ExtPay in the rest of your extension
+
+// Log user status for debugging
+extpay.getUser().then((user) => {
+  console.log('Tunevo user status:', user);
+}); 

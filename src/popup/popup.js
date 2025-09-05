@@ -1,5 +1,59 @@
 // Popup script to handle button clicks and communicate with content script
 
+// Initialize ExtPay
+const extpay = ExtPay("tunevo-test");
+
+// Trial duration in milliseconds (7 days)
+const TRIAL_DURATION = 7 * 24 * 60 * 60 * 1000;
+
+// Check if trial is active
+function isTrialActive(user) {
+  if (!user.trialStartedAt) return false;
+  const now = new Date();
+  const trialEnd = new Date(user.trialStartedAt.getTime() + TRIAL_DURATION);
+  return now < trialEnd;
+}
+
+// Get trial days remaining
+function getTrialDaysRemaining(user) {
+  if (!user.trialStartedAt) return 0;
+  const now = new Date();
+  const trialEnd = new Date(user.trialStartedAt.getTime() + TRIAL_DURATION);
+  const diff = trialEnd - now;
+  return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)));
+}
+
+// Update payment UI based on user status
+function updatePaymentUI(user) {
+  const paymentText = document.getElementById('paymentText');
+  const trialBtn = document.getElementById('trialBtn');
+  const payBtn = document.getElementById('payBtn');
+  const manageBtn = document.getElementById('manageBtn');
+
+  if (user.paid) {
+    paymentText.innerHTML = "🎉 Premium Active!";
+    trialBtn.style.display = "none";
+    payBtn.style.display = "none";
+    manageBtn.style.display = "inline-block";
+  } else if (isTrialActive(user)) {
+    const daysRemaining = getTrialDaysRemaining(user);
+    paymentText.innerHTML = `⏰ Free Trial: ${daysRemaining} days left`;
+    trialBtn.style.display = "none";
+    payBtn.style.display = "inline-block";
+    manageBtn.style.display = "none";
+  } else if (user.trialStartedAt) {
+    paymentText.innerHTML = "💳 Trial Expired - Upgrade Now!";
+    trialBtn.style.display = "none";
+    payBtn.style.display = "inline-block";
+    manageBtn.style.display = "none";
+  } else {
+    paymentText.innerHTML = "🚀 Start Your Free Trial!";
+    trialBtn.style.display = "inline-block";
+    payBtn.style.display = "inline-block";
+    manageBtn.style.display = "none";
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Get button elements
     const speedUpBtn = document.getElementById('speedUpId');
@@ -137,6 +191,47 @@ document.addEventListener('DOMContentLoaded', function() {
         if (confirm('Are you sure you want to clear ALL preferences? This will remove all saved settings and cannot be undone.')) {
             clearAllPreferences();
         }
+    });
+
+    // Payment button event listeners
+    const trialBtn = document.getElementById('trialBtn');
+    const payBtn = document.getElementById('payBtn');
+    const manageBtn = document.getElementById('manageBtn');
+
+    trialBtn.addEventListener('click', function(evt) {
+        evt.preventDefault();
+        extpay.openTrialPage("7-day");
+    });
+
+    payBtn.addEventListener('click', function(evt) {
+        evt.preventDefault();
+        extpay.openPaymentPage();
+    });
+
+    manageBtn.addEventListener('click', function(evt) {
+        evt.preventDefault();
+        extpay.openPaymentPage();
+    });
+
+    // Load user payment status
+    extpay.getUser()
+        .then((user) => {
+            updatePaymentUI(user);
+        })
+        .catch((err) => {
+            console.error('ExtPay error:', err);
+            document.getElementById('paymentText').innerHTML = "Error loading payment status";
+        });
+
+    // Listen for payment events
+    extpay.onTrialStarted.addListener((user) => {
+        console.log('Trial started!', user);
+        updatePaymentUI(user);
+    });
+
+    extpay.onPaid.addListener((user) => {
+        console.log('User paid!', user);
+        updatePaymentUI(user);
     });
 
 

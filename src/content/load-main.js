@@ -196,3 +196,81 @@ window.addEventListener('message', function(event) {
         }
     }
 });
+
+// Payment status indicator for Spotify pages
+const extpay = ExtPay("tunevo-test");
+
+// Check user status and show appropriate indicator
+extpay.getUser().then((user) => {
+  // Only show payment status if user is not paid and trial is expired
+  if (!user.paid && user.trialStartedAt) {
+    const now = new Date();
+    const trialEnd = new Date(user.trialStartedAt.getTime() + (7 * 24 * 60 * 60 * 1000));
+    if (now >= trialEnd) {
+      // Trial expired - show upgrade prompt
+      showPaymentPrompt();
+    }
+  }
+}).catch((err) => {
+  console.error('ExtPay error in content script:', err);
+});
+
+function showPaymentPrompt() {
+  // Create a subtle payment prompt
+  const prompt = document.createElement("div");
+  prompt.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 10000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    max-width: 250px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  `;
+  
+  prompt.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span>🎧</span>
+      <div>
+        <div style="font-weight: 600; margin-bottom: 4px;">Tunevo Premium</div>
+        <div style="font-size: 12px; opacity: 0.9;">Trial expired - Upgrade now!</div>
+      </div>
+    </div>
+  `;
+  
+  prompt.addEventListener('click', () => {
+    extpay.openPaymentPage();
+  });
+  
+  prompt.addEventListener('mouseenter', () => {
+    prompt.style.transform = 'translateY(-2px)';
+    prompt.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
+  });
+  
+  prompt.addEventListener('mouseleave', () => {
+    prompt.style.transform = 'translateY(0)';
+    prompt.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+  });
+  
+  document.body.appendChild(prompt);
+  
+  // Auto-hide after 10 seconds
+  setTimeout(() => {
+    if (prompt.parentNode) {
+      prompt.style.opacity = '0';
+      prompt.style.transform = 'translateY(-10px)';
+      setTimeout(() => {
+        if (prompt.parentNode) {
+          prompt.parentNode.removeChild(prompt);
+        }
+      }, 300);
+    }
+  }, 10000);
+}
