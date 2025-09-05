@@ -41,7 +41,7 @@
         <div class="payment-buttons" id="paymentButtons">
           <button id="trialBtn" class="payment-btn trial-btn">Start Free Trial</button>
           <button id="payBtn" class="payment-btn pay-btn" style="display: none;">Upgrade Now</button>
-          <button id="manageBtn" class="payment-btn manage-btn" style="display: none;">Manage Subscription</button>
+          <button id="manageBtn" class="payment-btn manage-btn" style="display: none;">Manage Purchase</button>
         </div>
       </div>
 
@@ -116,6 +116,23 @@
         <button id="clearAllBtn" class="clear-all-btn">
           🗑️ Clear All Preferences
         </button>
+      </div>
+
+      <!-- Import/Export Section -->
+      <div class="import-export-section">
+        <div class="import-export-header">
+          <h3>📁 Backup & Restore</h3>
+          <p>Export your preferences or import from a backup file</p>
+        </div>
+        <div class="import-export-buttons">
+          <button id="exportBtn" class="import-export-btn export-btn">
+            📤 Export Preferences
+          </button>
+          <button id="importBtn" class="import-export-btn import-btn">
+            📥 Import Preferences
+          </button>
+          <input type="file" id="importFileInput" accept=".json" style="display: none;">
+        </div>
       </div>
 
       <!-- <div class="footer">

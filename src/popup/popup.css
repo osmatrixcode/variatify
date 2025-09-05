@@ -484,3 +484,86 @@ input:checked + .slider:before {
 .payment-btn:active {
   transform: translateY(0);
 }
+
+/* Import/Export Section */
+.import-export-section {
+  margin-top: 20px;
+  background: #191414;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.import-export-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.import-export-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.import-export-header p {
+  font-size: 12px;
+  color: #cccccc;
+}
+
+.import-export-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.import-export-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  max-width: 120px;
+}
+
+.export-btn {
+  background: #28a745;
+  color: white;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.export-btn:hover {
+  background: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
+}
+
+.import-btn {
+  background: #007bff;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.import-btn:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+}
+
+.import-export-btn:active {
+  transform: translateY(0);
+}
+
+.import-export-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #6c757d;
+}
+
+.import-export-btn:disabled:hover {
+  transform: none;
+  box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
