@@ -1,0 +1,9 @@
+WHEN TRIAL FINISHES:
+- Disable streaming mode (set to false), can set to 
+- will download your preferences, and clear your chrome.storage.local
+
+
+AUTH PROBLEMS:
+- apparently if problem with API ExtPay, will default to allow ALL users to have lifetime features. Make sure have periodic checks for auth
+- for some reason, when sign in with already premium account, it asked for free trial and payment again? 
+-when press login button in popup, will say sign up for trial or login. if already have an account and free trial again, need to pay again?
