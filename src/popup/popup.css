@@ -493,6 +493,18 @@ input:checked + .slider:before {
   box-shadow: 0 4px 8px rgba(108, 117, 125, 0.4);
 }
 
+.logout-btn {
+  background: #dc3545;
+  color: white;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.logout-btn:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+}
+
 .payment-btn:active {
   transform: translateY(0);
 }

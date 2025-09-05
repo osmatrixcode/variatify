@@ -30,6 +30,7 @@ function updatePaymentUI(user) {
   const loginBtn = document.getElementById('loginBtn');
   const payBtn = document.getElementById('payBtn');
   const manageBtn = document.getElementById('manageBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
 
   if (user.paid) {
     paymentText.innerHTML = "🎉 Premium Lifetime Access!";
@@ -37,6 +38,7 @@ function updatePaymentUI(user) {
     loginBtn.style.display = "none";
     payBtn.style.display = "none";
     manageBtn.style.display = "inline-block";
+    logoutBtn.style.display = "inline-block";
     enableExtensionFeatures();
   } else if (isTrialActive(user)) {
     const daysRemaining = getTrialDaysRemaining(user);
@@ -45,6 +47,7 @@ function updatePaymentUI(user) {
     loginBtn.style.display = "none";
     payBtn.style.display = "inline-block";
     manageBtn.style.display = "none";
+    logoutBtn.style.display = "inline-block";
     enableExtensionFeatures();
   } else if (user.trialStartedAt) {
     paymentText.innerHTML = "💳 Trial Expired - Upgrade Now!";
@@ -52,6 +55,7 @@ function updatePaymentUI(user) {
     loginBtn.style.display = "none";
     payBtn.style.display = "inline-block";
     manageBtn.style.display = "none";
+    logoutBtn.style.display = "inline-block";
     disableExtensionFeatures();
   } else {
     paymentText.innerHTML = "🔒 Sign up required to use Tunevo";
@@ -59,6 +63,7 @@ function updatePaymentUI(user) {
     loginBtn.style.display = "inline-block";
     payBtn.style.display = "none";
     manageBtn.style.display = "none";
+    logoutBtn.style.display = "none";
     disableExtensionFeatures();
   }
 }
@@ -312,11 +317,48 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Logout function
+    function logoutFromExtPay() {
+        // Clear ExtPay storage data from both sync and local storage
+        const extpayKeys = [
+            'extensionpay_api_key',
+            'extensionpay_user', 
+            'extensionpay_installed_at'
+        ];
+        
+        // Clear from sync storage first
+        chrome.storage.sync.remove(extpayKeys, function() {
+            // Then clear from local storage
+            chrome.storage.local.remove(extpayKeys, function() {
+                console.log('🔐 ExtPay logout successful - cleared both sync and local storage');
+                // Reset authentication state
+                window.userAuthenticated = false;
+                
+                // Reset UI to unauthenticated state
+                const paymentText = document.getElementById('paymentText');
+                paymentText.innerHTML = "🔒 Sign up required to use Tunevo";
+                
+                // Show trial and login buttons, hide others
+                document.getElementById('trialBtn').style.display = "inline-block";
+                document.getElementById('loginBtn').style.display = "inline-block";
+                document.getElementById('payBtn').style.display = "none";
+                document.getElementById('manageBtn').style.display = "none";
+                document.getElementById('logoutBtn').style.display = "none";
+                
+                // Disable extension features
+                disableExtensionFeatures();
+                
+                showNotification('👋 Logged out successfully');
+            });
+        });
+    }
+
     // Payment button event listeners
     const trialBtn = document.getElementById('trialBtn');
     const loginBtn = document.getElementById('loginBtn');
     const payBtn = document.getElementById('payBtn');
     const manageBtn = document.getElementById('manageBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
 
     trialBtn.addEventListener('click', function(evt) {
         evt.preventDefault();
@@ -336,6 +378,11 @@ document.addEventListener('DOMContentLoaded', function() {
     manageBtn.addEventListener('click', function(evt) {
         evt.preventDefault();
         extpay.openPaymentPage();
+    });
+
+    logoutBtn.addEventListener('click', function(evt) {
+        evt.preventDefault();
+        logoutFromExtPay();
     });
 
     // Load user payment status
