@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="../ExtPay.js"></script>
     <script defer src="popup.js"></script>
     <title>Tunevo</title>
     <link rel="stylesheet" href="popup.css" />
@@ -31,6 +32,18 @@
           </div>
         </div>
       </header>
+
+      <!-- Payment Status Section -->
+      <div class="payment-status" id="paymentStatus">
+        <div class="payment-info">
+          <span class="payment-text" id="paymentText">Loading...</span>
+        </div>
+        <div class="payment-buttons" id="paymentButtons">
+          <button id="trialBtn" class="payment-btn trial-btn">Start Free Trial</button>
+          <button id="payBtn" class="payment-btn pay-btn" style="display: none;">Upgrade Now</button>
+          <button id="manageBtn" class="payment-btn manage-btn" style="display: none;">Manage Subscription</button>
+        </div>
+      </div>
 
       <!-- Streaming Mode Section -->
       <div class="streaming-mode">
