@@ -567,3 +567,12 @@ input:checked + .slider:before {
   transform: none;
   box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
 }
+
+/* Author text styling */
+.author-text {
+  text-align: center;
+  color: #888888;
+  font-size: 11px;
+  margin: 8px 0;
+  font-style: italic;
+}
