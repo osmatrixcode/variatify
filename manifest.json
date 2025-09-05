@@ -4,6 +4,9 @@
   "version": "1.0",
   "manifest_version": 3,
   "permissions": ["storage"],
+    "background": {
+        "service_worker": "background.js"
+    },
   "icons": {
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
