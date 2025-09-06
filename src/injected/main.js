@@ -18,6 +18,26 @@ let streamingMode = {
   rate: 'normal'
 };
 
+// Authentication state
+let isAuthenticated = false;
+
+// Function to check authentication status
+function checkAuthentication() {
+  return isAuthenticated;
+}
+
+// Function to set authentication status (called from content script)
+function setAuthenticationStatus(authenticated) {
+  isAuthenticated = authenticated;
+  console.log('🔐 Injected script authentication status:', authenticated);
+  
+  if (!authenticated) {
+    // If not authenticated, disable all effects and reset to normal
+    applyNormalSpeedWithoutSaving();
+    console.log('🔐 Trial expired - all effects disabled');
+  }
+}
+
 // Storage functions that communicate with content script
 function getSongId(title) {
   return title.toLowerCase().trim();
@@ -128,12 +148,19 @@ function checkForSongChange() {
     console.log(`🎵 Song changed from "${currentSongId}" to "${newSongId}"`);
     currentSongId = newSongId;
     
+    // Notify content script about song change
+    window.postMessage({
+      source: 'injected-script',
+      action: 'songChanged',
+      songInfo: songInfo
+    }, '*');
+    
     // If streaming mode is enabled, apply streaming rate to new song
     if (streamingMode.enabled) {
       console.log(`🎵 Streaming mode active, applying ${streamingMode.rate} to new song "${newSongId}"`);
       applyStreamingRate(streamingMode.rate);
-    } else {
-      // Load and apply saved setting for this song
+    } else if (checkAuthentication()) {
+      // Only load and apply saved settings if authenticated
       loadSongSetting(newSongId).then((savedSetting) => {
         if (savedSetting) {
           console.log(`🔄 Applying saved setting for "${newSongId}":`, savedSetting);
@@ -144,6 +171,10 @@ function checkForSongChange() {
           applyNormalSpeedWithoutSaving();
         }
       });
+    } else {
+      // Not authenticated - just reset to normal speed
+      console.log(`🔐 Trial expired - resetting to normal speed for "${newSongId}"`);
+      applyNormalSpeedWithoutSaving();
     }
   }
   
@@ -278,6 +309,11 @@ function applyTunevo(rate = null, pitch = null) {
 
 // New functions for different effects
 function speedUp() {
+  if (!checkAuthentication()) {
+    console.log('🔐 Trial expired - cannot apply speed up effect');
+    return;
+  }
+  
   currentEffect = { rate: 1.25, pitch: false, name: 'speedUp' };
   applyTunevo(1.25, false);
   
@@ -290,6 +326,11 @@ function speedUp() {
 }
 
 function normalSpeed() {
+  if (!checkAuthentication()) {
+    console.log('🔐 Trial expired - cannot apply normal speed effect');
+    return;
+  }
+  
   currentEffect = { rate: 1.0, pitch: true, name: 'normalSpeed' };
   applyTunevo(1.0, true);
   
@@ -302,6 +343,11 @@ function normalSpeed() {
 }
 
 function slowed() {
+  if (!checkAuthentication()) {
+    console.log('🔐 Trial expired - cannot apply slowed effect');
+    return;
+  }
+  
   currentEffect = { rate: 0.8, pitch: false, name: 'slowed' };
   applyTunevo(0.8, false);
   
@@ -455,6 +501,9 @@ window.addEventListener('message', function(event) {
         console.log('Received message from popup:', event.data.action, event.data);
         
         switch(event.data.action) {
+            case 'setAuthenticationStatus':
+                setAuthenticationStatus(event.data.authenticated);
+                break;
             case 'speedUp':
                 if (!streamingMode.enabled) {
                     speedUp();
@@ -528,7 +577,7 @@ window.addEventListener('message', function(event) {
         }
         
         // Send response back to content script for regular actions
-        if (!['getCurrentSetting', 'clearCurrentSetting', 'enableStreamingMode', 'disableStreamingMode', 'updateStreamingRate'].includes(event.data.action)) {
+        if (!['getCurrentSetting', 'clearCurrentSetting', 'enableStreamingMode', 'disableStreamingMode', 'updateStreamingRate', 'setAuthenticationStatus'].includes(event.data.action)) {
             window.postMessage({
                 source: 'injected-script',
                 status: 'Action executed: ' + event.data.action

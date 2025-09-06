@@ -3,8 +3,8 @@
 // Initialize ExtPay
 const extpay = ExtPay("tunevo-test");
 
-// Trial duration in milliseconds (7 days)
-const TRIAL_DURATION = 7 * 24 * 60 * 60 * 1000;
+// Trial duration in milliseconds (1 minute)
+const TRIAL_DURATION = 1 * 60 * 1000;
 
 // Check if trial is active
 function isTrialActive(user) {
@@ -23,38 +23,99 @@ function getTrialDaysRemaining(user) {
   return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)));
 }
 
+// Get formatted countdown string
+function getTrialCountdown(user) {
+  if (!user.trialStartedAt) return "0 days, 0 hours, 0 minutes, 0 seconds";
+  const now = new Date();
+  const trialEnd = new Date(user.trialStartedAt.getTime() + TRIAL_DURATION);
+  const diff = Math.max(0, trialEnd - now);
+  
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+  const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+  const seconds = Math.floor((diff % (60 * 1000)) / 1000);
+  
+  return `${days} days, ${hours} hours, ${minutes} minutes, ${seconds} seconds`;
+}
+
+// Global variable to store countdown interval
+let countdownInterval = null;
+
 // Update payment UI based on user status
 function updatePaymentUI(user) {
   const paymentText = document.getElementById('paymentText');
   const trialBtn = document.getElementById('trialBtn');
   const payBtn = document.getElementById('payBtn');
   const manageBtn = document.getElementById('manageBtn');
+  const trialFinishedMessage = document.getElementById('trialFinishedMessage');
+
+  // Clear any existing countdown interval
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
 
   if (user.paid) {
     paymentText.innerHTML = "🎉 Premium Lifetime Access!";
     trialBtn.style.display = "none";
     payBtn.style.display = "none";
     manageBtn.style.display = "inline-block";
+    trialFinishedMessage.style.display = "none";
     enableExtensionFeatures();
+    
+    // Send authentication status to content script
+    sendAuthenticationStatusToContentScript(true);
   } else if (isTrialActive(user)) {
-    const daysRemaining = getTrialDaysRemaining(user);
-    paymentText.innerHTML = `⏰ Free Trial: ${daysRemaining} days left`;
+    // Start countdown for active trial
+    const updateCountdown = () => {
+      const countdown = getTrialCountdown(user);
+      paymentText.innerHTML = `⏰ Free Trial: ${countdown}`;
+      
+      // Check if trial has expired during countdown
+      if (!isTrialActive(user)) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+        updatePaymentUI(user); // Refresh UI to show expired state
+      }
+    };
+    
+    // Initial countdown display
+    updateCountdown();
+    
+    // Start interval to update every second
+    countdownInterval = setInterval(updateCountdown, 1000);
+    
     trialBtn.style.display = "none";
     payBtn.style.display = "inline-block";
     manageBtn.style.display = "none";
+    trialFinishedMessage.style.display = "none";
     enableExtensionFeatures();
+    
+    // Send authentication status to content script
+    sendAuthenticationStatusToContentScript(true);
   } else if (user.trialStartedAt) {
     paymentText.innerHTML = "💳 Trial Expired - Upgrade Now!";
     trialBtn.style.display = "none";
     payBtn.style.display = "inline-block";
     manageBtn.style.display = "none";
+    trialFinishedMessage.style.display = "block";
     disableExtensionFeatures();
+    
+    // Disable streaming mode when trial expires
+    disableStreamingModeOnTrialEnd();
+    
+    // Send authentication status to content script
+    sendAuthenticationStatusToContentScript(false);
   } else {
     paymentText.innerHTML = "🔒 Sign up required to use Tunevo";
     trialBtn.style.display = "inline-block";
     payBtn.style.display = "none";
     manageBtn.style.display = "none";
+    trialFinishedMessage.style.display = "none";
     disableExtensionFeatures();
+    
+    // Send authentication status to content script
+    sendAuthenticationStatusToContentScript(false);
   }
 }
 
@@ -112,6 +173,45 @@ function disableExtensionFeatures() {
   }
 }
 
+// Disable streaming mode when trial ends
+function disableStreamingModeOnTrialEnd() {
+  console.log('🔧 Trial expired - disabling streaming mode');
+  
+  // Update UI elements
+  const streamingToggle = document.getElementById('streamingToggle');
+  const rateSelector = document.getElementById('rateSelector');
+  const streamingRate = document.getElementById('streamingRate');
+  
+  if (streamingToggle) {
+    streamingToggle.checked = false;
+    streamingToggle.disabled = true;
+  }
+  
+  if (rateSelector) {
+    rateSelector.style.display = 'none';
+  }
+  
+  if (streamingRate) {
+    streamingRate.value = 'normal';
+  }
+  
+  // Update control buttons state
+  updateControlButtonsState(false);
+  
+  // Save streaming mode state as disabled
+  const state = {
+    enabled: false,
+    rate: 'normal'
+  };
+  
+  chrome.storage.local.set({ 'tunevo_streaming_mode': state }, function() {
+    console.log('🔧 Streaming mode disabled and saved to storage:', state);
+  });
+  
+  // Send message to content script to disable streaming mode
+  sendMessageToContentScript('disableStreamingMode');
+}
+
 // Check if user is authenticated (has trial or paid)
 function checkAuthentication() {
   // This will be set by the ExtPay user status
@@ -123,6 +223,14 @@ function checkAuthentication() {
 function showAuthRequiredMessage() {
   showNotification('🔒 Please sign up for free trial to use Tunevo!');
 }
+
+// Cleanup countdown interval when popup is closed
+window.addEventListener('beforeunload', function() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+});
 
 document.addEventListener('DOMContentLoaded', function() {
     // Get button elements
@@ -343,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // This prevents breaking the extension if ExtPay is down
             window.userAuthenticated = true;
             console.log('🔐 ExtPay failed, allowing access as fallback');
-            document.getElementById('paymentText').innerHTML = "🚀 Tunevo Ready!";
+            document.getElementById('paymentText').innerHTML = "🎉 Premium Lifetime Access!";
             enableExtensionFeatures();
         });
 
@@ -365,7 +473,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Listen for messages from content script
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         if (request.source === 'content-script') {
-            if (request.action === 'currentSetting') {
+            if (request.action === 'songChanged') {
+                console.log('🎵 Received song change notification:', request.songInfo);
+                updateSongDisplay(request.songInfo.title);
+                // Also reload the current setting for the new song
+                setTimeout(loadCurrentSetting, 100);
+            } else if (request.action === 'currentSetting') {
                 console.log('🔧 Received currentSetting message:', request.data.setting);
                 injectedScriptReady = true; // Mark injected script as ready
                 updateSettingDisplay(request.data.setting);
@@ -459,6 +572,29 @@ function sendMessageToContentScript(action, data = null) {
                 console.error('Error sending message:', chrome.runtime.lastError);
             } else {
                 console.log('Message sent successfully:', response);
+            }
+        });
+    });
+}
+
+// Send authentication status to content script
+function sendAuthenticationStatusToContentScript(authenticated) {
+    console.log('🔐 sendAuthenticationStatusToContentScript called with:', authenticated);
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        const activeTab = tabs[0];
+        
+        const message = {
+            action: 'setAuthenticationStatus',
+            source: 'popup',
+            authenticated: authenticated
+        };
+        
+        console.log('🔐 Sending authentication status to tab:', activeTab.id, message);
+        chrome.tabs.sendMessage(activeTab.id, message, function(response) {
+            if (chrome.runtime.lastError) {
+                console.error('Error sending authentication status:', chrome.runtime.lastError);
+            } else {
+                console.log('Authentication status sent successfully:', response);
             }
         });
     });
