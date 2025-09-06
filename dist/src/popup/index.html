@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="../ExtPay.js"></script>
+    <script defer src="popup.js"></script>
+    <title>Variatify</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+
+    <!-- POPUP CONTENT -->
+     <!-- <p class="author-text">by osmatrixcode aka Ameer Osman Yousufzia</p> -->
+    <div class="app">
+      <header class="header">
+        <h1>🎧 Variatify</h1>
+        <p>Transform your Spotify experience</p>
+        <div class="current-song">
+          <div class="song-info">
+            <span class="song-title" id="songTitle">Loading...</span>
+            <span class="song-artist" id="songArtist">Loading...</span>
+          </div>
+          <div class="setting-status" id="settingStatus">
+            <span class="setting-text" id="settingText">No saved setting</span>
+            <button
+              class="clear-btn"
+              id="clearSettingBtn"
+              style="display: none"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Payment Status Section -->
+      <div class="payment-status" id="paymentStatus">
+        <div class="payment-info">
+          <span class="payment-text" id="paymentText">Loading...</span>
+        </div>
+        <div class="payment-buttons" id="paymentButtons">
+          <button id="trialBtn" class="payment-btn trial-btn">Start Free Trial</button>
+          <button id="payBtn" class="payment-btn pay-btn" style="display: none;">Upgrade Now (£2.99 for lifetime access)</button>
+          <button id="manageBtn" class="payment-btn manage-btn" style="display: none;">Manage Purchase</button>
+        </div>
+        <!-- Trial Finished Message -->
+        <div class="trial-finished-message" id="trialFinishedMessage" style="display: none;">
+          <p class="trial-finished-text">
+            💡 <strong>Don't want to upgrade?</strong> You can delete this extension to remove all preferences stored on your machine.
+          </p>
+        </div>
+      </div>
+
+      <!-- problem? -->
+      <div class="help-section">
+        <p class="help-text">extension not working? Try refreshing the page!</p>
+      </div>
+
+      <!-- Streaming Mode Section -->
+      <div class="streaming-mode">
+        <div class="streaming-header">
+          <h3>🎵 Streaming Mode</h3>
+          <p>Apply same playback rate to all songs</p>
+        </div>
+        <div class="streaming-controls">
+          <div class="toggle-container">
+            <label class="toggle-switch">
+              <input type="checkbox" id="streamingToggle">
+              <span class="slider"></span>
+            </label>
+            <span class="toggle-label">Enable Streaming Mode</span>
+          </div>
+          <div class="rate-selector" id="rateSelector" style="display: none;">
+            <label for="streamingRate">Playback Rate:</label>
+            <select id="streamingRate">
+              <option value="slowed">Slowed (0.8x)</option>
+              <option value="normal">Normal (1.0x)</option>
+              <option value="speedUp">Speed Up (1.25x)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="control-group">
+          <button id="speedUpId" class="control-btn speed-up">
+            <div class="btn-content">
+              <img
+                src="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZ2tpdWRleWQ0b3V4Y3lpajBvZWxsenF2ZndpZ3RxY2llYWNxMHU2ciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/6k6iDdi5NN8ZO/giphy.gif"
+                alt="Happy anime girl dancing"
+                class="btn-gif"
+              />
+              <span>Speed Up</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="control-group">
+          <button id="normalSpeedId" class="control-btn normal">
+            <div class="btn-content">
+              <img
+                src="https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZjRoZXZkcGhqZ3Nrc3o1bWRmdnQ0cTd6ejVjZTI3ejZuNXg1MHoyOSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/fjgqYjVkzfQ9a/giphy.gif"
+                alt="Normal"
+                class="btn-gif"
+              />
+              <span>Normal Speed</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="control-group">
+          <button id="slowedId" class="control-btn slowed">
+            <div class="btn-content">
+              <img
+                src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExZm83czdkeThobXNhbmNwemtxZWZ0dXo4bnYwcDh0dnRjbmUwdzYzYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/4ilFRqgbzbx4c/giphy.gif"
+                alt="Sad Simpson"
+                class="btn-gif"
+              />
+              <span>Slowed</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Clear All Preferences Button -->
+      <div class="clear-all-section">
+        <button id="clearAllBtn" class="clear-all-btn">
+          🗑️ Clear All Preferences
+        </button>
+      </div>
+
+      <!-- Import/Export Section -->
+      <div class="import-export-section">
+        <div class="import-export-header">
+          <h3>📁 Backup & Restore</h3>
+          <p>Export your preferences or import from a backup file</p>
+        </div>
+        <div class="import-export-buttons">
+          <button id="exportBtn" class="import-export-btn export-btn">
+            📤 Export Preferences
+          </button>
+          <button id="importBtn" class="import-export-btn import-btn">
+            📥 Import Preferences
+          </button>
+          <input type="file" id="importFileInput" accept=".json" style="display: none;">
+        </div>
+      </div>
+
+      <!-- <div class="footer">
+        <a
+          href="https://www.buymeacoffee.com/tunevo"
+          target="_blank"
+          class="buy-me-coffee"
+        >
+          ☕ Buy me a coffee
+        </a>
+      </div> -->
+    </div>
+
+    <!-- First Time Modal -->
+    <div id="firstTimeModal" class="modal-overlay" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>🎉 Welcome to Tunevo!</h2>
+        </div>
+        <div class="modal-body">
+          <p>
+            Thanks for trying out Tunevo! If you find this extension helpful,
+            consider supporting the development with a coffee ☕
+          </p>
+
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- <p class="author-text">by osmatrixcode aka Ameer Osman Yousufzia</p> -->
+
+  </body>
+</html>
