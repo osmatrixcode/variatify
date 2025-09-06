@@ -94,6 +94,9 @@ function updatePaymentUI(user) {
     manageBtn.style.display = "none";
     trialFinishedMessage.style.display = "block";
     disableExtensionFeatures();
+    
+    // Disable streaming mode when trial expires
+    disableStreamingModeOnTrialEnd();
   } else {
     paymentText.innerHTML = "🔒 Sign up required to use Tunevo";
     trialBtn.style.display = "inline-block";
@@ -156,6 +159,45 @@ function disableExtensionFeatures() {
     streamingToggle.disabled = true;
     streamingToggle.style.cursor = 'not-allowed';
   }
+}
+
+// Disable streaming mode when trial ends
+function disableStreamingModeOnTrialEnd() {
+  console.log('🔧 Trial expired - disabling streaming mode');
+  
+  // Update UI elements
+  const streamingToggle = document.getElementById('streamingToggle');
+  const rateSelector = document.getElementById('rateSelector');
+  const streamingRate = document.getElementById('streamingRate');
+  
+  if (streamingToggle) {
+    streamingToggle.checked = false;
+    streamingToggle.disabled = true;
+  }
+  
+  if (rateSelector) {
+    rateSelector.style.display = 'none';
+  }
+  
+  if (streamingRate) {
+    streamingRate.value = 'normal';
+  }
+  
+  // Update control buttons state
+  updateControlButtonsState(false);
+  
+  // Save streaming mode state as disabled
+  const state = {
+    enabled: false,
+    rate: 'normal'
+  };
+  
+  chrome.storage.local.set({ 'tunevo_streaming_mode': state }, function() {
+    console.log('🔧 Streaming mode disabled and saved to storage:', state);
+  });
+  
+  // Send message to content script to disable streaming mode
+  sendMessageToContentScript('disableStreamingMode');
 }
 
 // Check if user is authenticated (has trial or paid)
