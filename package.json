@@ -1,0 +1,16 @@
+{
+    
+        "scripts": {
+          "clean": "rimraf dist",
+          "copy": "cpy \"**/*.{html,css,svg,png,jpg,webp,woff,woff2}\" ../dist --cwd=src --parents && cpy manifest.json dist",
+          "minify": "esbuild \"src/**/*.js\" --outdir=dist --outbase=src --platform=browser --format=esm --minify",
+          "build": "npm run clean && npm run copy && npm run minify"
+        }
+      
+      ,
+    "devDependencies": {
+        "cpy-cli": "^6.0.0",
+        "esbuild": "^0.25.9",
+        "rimraf": "^6.0.1"
+    }
+}
