@@ -5,3 +5,6 @@ harmonify
 enhancify
 beatify
 speedify 
+
+convertify
+groovify
