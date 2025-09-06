@@ -451,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // This prevents breaking the extension if ExtPay is down
             window.userAuthenticated = true;
             console.log('🔐 ExtPay failed, allowing access as fallback');
-            document.getElementById('paymentText').innerHTML = "🚀 Tunevo Ready!";
+            document.getElementById('paymentText').innerHTML = "🎉 Premium Lifetime Access!";
             enableExtensionFeatures();
         });
 
