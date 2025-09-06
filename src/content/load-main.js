@@ -221,6 +221,14 @@ window.addEventListener('message', function(event) {
                 action: event.data.action,
                 data: event.data
             });
+        } else if (event.data.action === 'songChanged') {
+            console.log('🎵 Song changed, notifying popup:', event.data.songInfo);
+            // Send song change notification to popup
+            chrome.runtime.sendMessage({
+                source: 'content-script',
+                action: 'songChanged',
+                songInfo: event.data.songInfo
+            });
         }
     }
 });

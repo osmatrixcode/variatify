@@ -148,6 +148,13 @@ function checkForSongChange() {
     console.log(`🎵 Song changed from "${currentSongId}" to "${newSongId}"`);
     currentSongId = newSongId;
     
+    // Notify content script about song change
+    window.postMessage({
+      source: 'injected-script',
+      action: 'songChanged',
+      songInfo: songInfo
+    }, '*');
+    
     // If streaming mode is enabled, apply streaming rate to new song
     if (streamingMode.enabled) {
       console.log(`🎵 Streaming mode active, applying ${streamingMode.rate} to new song "${newSongId}"`);

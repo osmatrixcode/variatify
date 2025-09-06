@@ -473,7 +473,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Listen for messages from content script
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         if (request.source === 'content-script') {
-            if (request.action === 'currentSetting') {
+            if (request.action === 'songChanged') {
+                console.log('🎵 Received song change notification:', request.songInfo);
+                updateSongDisplay(request.songInfo.title);
+                // Also reload the current setting for the new song
+                setTimeout(loadCurrentSetting, 100);
+            } else if (request.action === 'currentSetting') {
                 console.log('🔧 Received currentSetting message:', request.data.setting);
                 injectedScriptReady = true; // Mark injected script as ready
                 updateSettingDisplay(request.data.setting);
