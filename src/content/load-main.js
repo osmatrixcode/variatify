@@ -99,6 +99,19 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             }, '*');
             
             sendResponse({status: 'Streaming mode message forwarded to injected script'});
+        } else if (request.action === 'setAuthenticationStatus') {
+            // Handle authentication status updates from popup
+            window.contentScriptAuthenticated = request.authenticated;
+            console.log('🔐 Content script authentication status updated:', request.authenticated);
+            
+            // Forward to injected script
+            window.postMessage({
+                action: 'setAuthenticationStatus',
+                authenticated: request.authenticated,
+                source: 'content-script'
+            }, '*');
+            
+            sendResponse({status: 'Authentication status updated'});
         } else {
             // Check authentication before processing
             if (!checkContentScriptAuthentication()) {
@@ -233,6 +246,13 @@ extpay.getUser().then((user) => {
   
   window.contentScriptAuthenticated = user.paid || isTrialActive;
   
+  // Send authentication status to injected script
+  window.postMessage({
+    source: 'content-script',
+    action: 'setAuthenticationStatus',
+    authenticated: window.contentScriptAuthenticated
+  }, '*');
+  
   // Only show payment status if user is not paid and trial is expired
   if (!user.paid && user.trialStartedAt) {
     const now = new Date();
@@ -247,6 +267,13 @@ extpay.getUser().then((user) => {
   // FALLBACK: If ExtPay fails, assume user is authenticated for now
   window.contentScriptAuthenticated = true;
   console.log('🔐 Content script: ExtPay failed, allowing access as fallback');
+  
+  // Send authentication status to injected script (fallback case)
+  window.postMessage({
+    source: 'content-script',
+    action: 'setAuthenticationStatus',
+    authenticated: window.contentScriptAuthenticated
+  }, '*');
 });
 
 function showPaymentPrompt() {

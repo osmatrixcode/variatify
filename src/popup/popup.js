@@ -62,6 +62,9 @@ function updatePaymentUI(user) {
     manageBtn.style.display = "inline-block";
     trialFinishedMessage.style.display = "none";
     enableExtensionFeatures();
+    
+    // Send authentication status to content script
+    sendAuthenticationStatusToContentScript(true);
   } else if (isTrialActive(user)) {
     // Start countdown for active trial
     const updateCountdown = () => {
@@ -87,6 +90,9 @@ function updatePaymentUI(user) {
     manageBtn.style.display = "none";
     trialFinishedMessage.style.display = "none";
     enableExtensionFeatures();
+    
+    // Send authentication status to content script
+    sendAuthenticationStatusToContentScript(true);
   } else if (user.trialStartedAt) {
     paymentText.innerHTML = "💳 Trial Expired - Upgrade Now!";
     trialBtn.style.display = "none";
@@ -97,6 +103,9 @@ function updatePaymentUI(user) {
     
     // Disable streaming mode when trial expires
     disableStreamingModeOnTrialEnd();
+    
+    // Send authentication status to content script
+    sendAuthenticationStatusToContentScript(false);
   } else {
     paymentText.innerHTML = "🔒 Sign up required to use Tunevo";
     trialBtn.style.display = "inline-block";
@@ -104,6 +113,9 @@ function updatePaymentUI(user) {
     manageBtn.style.display = "none";
     trialFinishedMessage.style.display = "none";
     disableExtensionFeatures();
+    
+    // Send authentication status to content script
+    sendAuthenticationStatusToContentScript(false);
   }
 }
 
@@ -555,6 +567,29 @@ function sendMessageToContentScript(action, data = null) {
                 console.error('Error sending message:', chrome.runtime.lastError);
             } else {
                 console.log('Message sent successfully:', response);
+            }
+        });
+    });
+}
+
+// Send authentication status to content script
+function sendAuthenticationStatusToContentScript(authenticated) {
+    console.log('🔐 sendAuthenticationStatusToContentScript called with:', authenticated);
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        const activeTab = tabs[0];
+        
+        const message = {
+            action: 'setAuthenticationStatus',
+            source: 'popup',
+            authenticated: authenticated
+        };
+        
+        console.log('🔐 Sending authentication status to tab:', activeTab.id, message);
+        chrome.tabs.sendMessage(activeTab.id, message, function(response) {
+            if (chrome.runtime.lastError) {
+                console.error('Error sending authentication status:', chrome.runtime.lastError);
+            } else {
+                console.log('Authentication status sent successfully:', response);
             }
         });
     });
