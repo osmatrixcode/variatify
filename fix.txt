@@ -1,7 +1,4 @@
-WHEN TRIAL FINISHES:
-- Disable streaming mode (set to false), can set to 
-- will download your preferences, and clear your chrome.storage.local
--fix 
+
 
 AUTH PROBLEMS:
 - apparently if problem with API ExtPay, will default to allow ALL users to have lifetime features. Make sure have periodic checks for auth
@@ -10,6 +7,6 @@ AUTH PROBLEMS:
 
 IMMEDIATE FIXES:
 -when have popup open and song changes whilst popup is open, the song name in the popup doesnt update. 
--when trial is finished, set streaming mode to false? (dont have to?)
--when trial is finished, download preferences
--when trial is finished and dont want to purchase lifetime access, and notice that settings is still there, tell them to delete extension to remove preferences stored in your machine 
+-what happens when A purchases, and gives it to B and logs in to that? 
+    *need to verify with email address when login for first time B? but still A can press yes confirm? 
+    *this will stop mass sharing accounts, but doesnt prevent small sharing accounts (2 people)  
