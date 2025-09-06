@@ -1,13 +1,15 @@
 {
-    
+    "name": "tunevo",
+    "version": "1.0.0",
     "scripts": {
         "clean": "rimraf dist",
-        "copy": "cpy \"**/*.{html,css,svg,png,jpg,webp,woff,woff2}\" ../dist --cwd=src --parents && cpy manifest.json dist && cpy icons dist --recursive",
-        "minify": "esbuild \"src/**/*.js\" --outdir=dist --outbase=src --platform=browser --format=esm --minify",
-        "build": "npm run clean && npm run copy && npm run minify"
-      }
-      
-      ,
+        "copy:assets": "cpy \"src/**/*.{html,css}\" dist/src --parents",
+        "copy:icons": "cpy \"icons/**/*\" dist/icons --parents",
+        "copy:manifest": "cpy \"manifest.json\" dist",
+        "copy:extpay": "cp src/ExtPay.js dist/src/",
+        "minify": "esbuild \"src/background.js\" \"src/content/*.js\" \"src/injected/*.js\" \"src/popup/*.js\" --outdir=dist/src --outbase=src --platform=browser --format=esm --minify",
+        "build": "npm run clean && npm run copy:assets && npm run copy:icons && npm run copy:manifest && npm run copy:extpay && npm run minify"
+    },
     "devDependencies": {
         "cpy-cli": "^6.0.0",
         "esbuild": "^0.25.9",
