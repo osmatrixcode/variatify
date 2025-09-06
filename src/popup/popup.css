@@ -595,3 +595,26 @@ input:checked + .slider:before {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   margin: 0;
 }
+
+/* Trial Finished Message */
+.trial-finished-message {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 6px;
+  backdrop-filter: blur(10px);
+}
+
+.trial-finished-text {
+  color: #ffc107;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.trial-finished-text strong {
+  color: #ffed4e;
+  font-weight: 600;
+}
