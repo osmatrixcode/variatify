@@ -1,237 +1,5 @@
 // Popup script to handle button clicks and communicate with content script
 
-// Initialize ExtPay
-const extpay = ExtPay("tunevo-test");
-
-// Trial duration in milliseconds (1 minute)
-const TRIAL_DURATION = 1 * 60 * 1000;
-
-// Check if trial is active
-function isTrialActive(user) {
-  if (!user.trialStartedAt) return false;
-  const now = new Date();
-  const trialEnd = new Date(user.trialStartedAt.getTime() + TRIAL_DURATION);
-  return now < trialEnd;
-}
-
-// Get trial days remaining
-function getTrialDaysRemaining(user) {
-  if (!user.trialStartedAt) return 0;
-  const now = new Date();
-  const trialEnd = new Date(user.trialStartedAt.getTime() + TRIAL_DURATION);
-  const diff = trialEnd - now;
-  return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)));
-}
-
-// Get formatted countdown string
-function getTrialCountdown(user) {
-  if (!user.trialStartedAt) return "0 days, 0 hours, 0 minutes, 0 seconds";
-  const now = new Date();
-  const trialEnd = new Date(user.trialStartedAt.getTime() + TRIAL_DURATION);
-  const diff = Math.max(0, trialEnd - now);
-  
-  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
-  const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-  const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
-  const seconds = Math.floor((diff % (60 * 1000)) / 1000);
-  
-  return `${days} days, ${hours} hours, ${minutes} minutes, ${seconds} seconds`;
-}
-
-// Global variable to store countdown interval
-let countdownInterval = null;
-
-// Update payment UI based on user status
-function updatePaymentUI(user) {
-  const paymentText = document.getElementById('paymentText');
-  const trialBtn = document.getElementById('trialBtn');
-  const payBtn = document.getElementById('payBtn');
-  const manageBtn = document.getElementById('manageBtn');
-  const trialFinishedMessage = document.getElementById('trialFinishedMessage');
-
-  // Clear any existing countdown interval
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-    countdownInterval = null;
-  }
-
-  if (user.paid) {
-    paymentText.innerHTML = "🎉 Premium Lifetime Access!";
-    trialBtn.style.display = "none";
-    payBtn.style.display = "none";
-    manageBtn.style.display = "inline-block";
-    trialFinishedMessage.style.display = "none";
-    enableExtensionFeatures();
-    
-    // Send authentication status to content script
-    sendAuthenticationStatusToContentScript(true);
-  } else if (isTrialActive(user)) {
-    // Start countdown for active trial
-    const updateCountdown = () => {
-      const countdown = getTrialCountdown(user);
-      paymentText.innerHTML = `⏰ Free Trial: ${countdown}`;
-      
-      // Check if trial has expired during countdown
-      if (!isTrialActive(user)) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
-        updatePaymentUI(user); // Refresh UI to show expired state
-      }
-    };
-    
-    // Initial countdown display
-    updateCountdown();
-    
-    // Start interval to update every second
-    countdownInterval = setInterval(updateCountdown, 1000);
-    
-    trialBtn.style.display = "none";
-    payBtn.style.display = "inline-block";
-    manageBtn.style.display = "none";
-    trialFinishedMessage.style.display = "none";
-    enableExtensionFeatures();
-    
-    // Send authentication status to content script
-    sendAuthenticationStatusToContentScript(true);
-  } else if (user.trialStartedAt) {
-    paymentText.innerHTML = "💳 Trial Expired - Upgrade Now!";
-    trialBtn.style.display = "none";
-    payBtn.style.display = "inline-block";
-    manageBtn.style.display = "none";
-    trialFinishedMessage.style.display = "block";
-    disableExtensionFeatures();
-    
-    // Disable streaming mode when trial expires
-    disableStreamingModeOnTrialEnd();
-    
-    // Send authentication status to content script
-    sendAuthenticationStatusToContentScript(false);
-  } else {
-    paymentText.innerHTML = "🔒 Sign up required to use Tunevo";
-    trialBtn.style.display = "inline-block";
-    payBtn.style.display = "none";
-    manageBtn.style.display = "none";
-    trialFinishedMessage.style.display = "none";
-    disableExtensionFeatures();
-    
-    // Send authentication status to content script
-    sendAuthenticationStatusToContentScript(false);
-  }
-}
-
-// Enable extension features
-function enableExtensionFeatures() {
-  const controls = document.querySelector('.controls');
-  const streamingMode = document.querySelector('.streaming-mode');
-  const clearAllSection = document.querySelector('.clear-all-section');
-  const importExportSection = document.querySelector('.import-export-section');
-  
-  if (controls) controls.style.opacity = '1';
-  if (streamingMode) streamingMode.style.opacity = '1';
-  if (clearAllSection) clearAllSection.style.opacity = '1';
-  if (importExportSection) importExportSection.style.opacity = '1';
-  
-  // Enable all buttons
-  const buttons = document.querySelectorAll('.control-btn, .clear-btn, .clear-all-btn, .import-export-btn');
-  buttons.forEach(btn => {
-    btn.disabled = false;
-    btn.style.cursor = 'pointer';
-  });
-  
-  // Enable streaming toggle
-  const streamingToggle = document.getElementById('streamingToggle');
-  if (streamingToggle) {
-    streamingToggle.disabled = false;
-    streamingToggle.style.cursor = 'pointer';
-  }
-}
-
-// Disable extension features
-function disableExtensionFeatures() {
-  const controls = document.querySelector('.controls');
-  const streamingMode = document.querySelector('.streaming-mode');
-  const clearAllSection = document.querySelector('.clear-all-section');
-  const importExportSection = document.querySelector('.import-export-section');
-  
-  if (controls) controls.style.opacity = '0.5';
-  if (streamingMode) streamingMode.style.opacity = '0.5';
-  if (clearAllSection) clearAllSection.style.opacity = '0.5';
-  if (importExportSection) importExportSection.style.opacity = '0.5';
-  
-  // Disable all buttons
-  const buttons = document.querySelectorAll('.control-btn, .clear-btn, .clear-all-btn, .import-export-btn');
-  buttons.forEach(btn => {
-    btn.disabled = true;
-    btn.style.cursor = 'not-allowed';
-  });
-  
-  // Disable streaming toggle
-  const streamingToggle = document.getElementById('streamingToggle');
-  if (streamingToggle) {
-    streamingToggle.disabled = true;
-    streamingToggle.style.cursor = 'not-allowed';
-  }
-}
-
-// Disable streaming mode when trial ends
-function disableStreamingModeOnTrialEnd() {
-  console.log('🔧 Trial expired - disabling streaming mode');
-  
-  // Update UI elements
-  const streamingToggle = document.getElementById('streamingToggle');
-  const rateSelector = document.getElementById('rateSelector');
-  const streamingRate = document.getElementById('streamingRate');
-  
-  if (streamingToggle) {
-    streamingToggle.checked = false;
-    streamingToggle.disabled = true;
-  }
-  
-  if (rateSelector) {
-    rateSelector.style.display = 'none';
-  }
-  
-  if (streamingRate) {
-    streamingRate.value = 'normal';
-  }
-  
-  // Update control buttons state
-  updateControlButtonsState(false);
-  
-  // Save streaming mode state as disabled
-  const state = {
-    enabled: false,
-    rate: 'normal'
-  };
-  
-  chrome.storage.local.set({ 'tunevo_streaming_mode': state }, function() {
-    console.log('🔧 Streaming mode disabled and saved to storage:', state);
-  });
-  
-  // Send message to content script to disable streaming mode
-  sendMessageToContentScript('disableStreamingMode');
-}
-
-// Check if user is authenticated (has trial or paid)
-function checkAuthentication() {
-  // This will be set by the ExtPay user status
-  console.log('🔐 Checking authentication:', window.userAuthenticated);
-  return window.userAuthenticated || false;
-}
-
-// Show authentication required message
-function showAuthRequiredMessage() {
-  showNotification('🔒 Please sign up for free trial to use Tunevo!');
-}
-
-// Cleanup countdown interval when popup is closed
-window.addEventListener('beforeunload', function() {
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-    countdownInterval = null;
-  }
-});
-
 document.addEventListener('DOMContentLoaded', function() {
     // Get button elements
     const speedUpBtn = document.getElementById('speedUpId');
@@ -244,10 +12,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const streamingToggle = document.getElementById('streamingToggle');
     const rateSelector = document.getElementById('rateSelector');
     const streamingRate = document.getElementById('streamingRate');
-    
+
     // Flag to track if injected script is ready
     let injectedScriptReady = false;
-    
+
     console.log('🔧 Found streaming elements:', {
         streamingToggle: !!streamingToggle,
         rateSelector: !!rateSelector,
@@ -261,13 +29,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load current song info when popup opens
     loadCurrentSong();
-    
+
     // Load streaming mode state with a delay to ensure injected script is ready
     // First try to get current setting to see if injected script is ready
     setTimeout(() => {
         console.log('🔧 Checking if injected script is ready...');
         sendMessageToContentScript('getCurrentSetting');
-        
+
         // Wait a bit more for the response, then load streaming mode state
         // Also add a timeout to prevent infinite waiting
         setTimeout(() => {
@@ -276,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 injectedScriptReady = true;
             }
             loadStreamingModeState();
-            
+
             // Add a periodic check to ensure streaming rate is correct
             setTimeout(() => {
                 if (injectedScriptReady) {
@@ -289,7 +57,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Add event listeners
     speedUpBtn.addEventListener('click', function() {
-        if (!checkAuthentication()) return;
         if (!streamingToggle.checked) {
             sendMessageToContentScript('speedUp');
             showNotification('Speed Up applied!');
@@ -300,7 +67,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     normalSpeedBtn.addEventListener('click', function() {
-        if (!checkAuthentication()) return;
         if (!streamingToggle.checked) {
             sendMessageToContentScript('normalSpeed');
             showNotification('Normal Speed applied!');
@@ -311,7 +77,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     slowedBtn.addEventListener('click', function() {
-        if (!checkAuthentication()) return;
         if (!streamingToggle.checked) {
             sendMessageToContentScript('slowed');
             showNotification('Slowed applied!');
@@ -323,18 +88,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Streaming mode toggle
     streamingToggle.addEventListener('change', function() {
-        if (!checkAuthentication()) {
-            this.checked = false; // Reset toggle
-            showAuthRequiredMessage();
-            return;
-        }
         console.log('🔧 Streaming toggle changed:', this.checked);
         const isEnabled = this.checked;
         rateSelector.style.display = isEnabled ? 'flex' : 'none';
-        
+
         // Enable/disable control buttons based on streaming mode
         updateControlButtonsState(isEnabled);
-        
+
         if (isEnabled) {
             const rate = streamingRate.value;
             console.log('🔧 Enabling streaming mode with rate:', rate);
@@ -347,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('Streaming mode disabled! Restored per-song settings.');
             setTimeout(loadCurrentSetting, 500);
         }
-        
+
         // Save streaming mode state
         saveStreamingModeState();
     });
@@ -363,10 +123,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     clearSettingBtn.addEventListener('click', function() {
-        if (!checkAuthentication()) {
-            showAuthRequiredMessage();
-            return;
-        }
         if (!streamingToggle.checked) {
             sendMessageToContentScript('clearCurrentSetting');
             showNotification('Setting cleared!');
@@ -378,10 +134,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear all preferences button
     const clearAllBtn = document.getElementById('clearAllBtn');
     clearAllBtn.addEventListener('click', function() {
-        if (!checkAuthentication()) {
-            showAuthRequiredMessage();
-            return;
-        }
         if (confirm('Are you sure you want to clear ALL preferences? This will remove all saved settings and cannot be undone.')) {
             clearAllPreferences();
         }
@@ -393,18 +145,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const importFileInput = document.getElementById('importFileInput');
 
     exportBtn.addEventListener('click', function() {
-        if (!checkAuthentication()) {
-            showAuthRequiredMessage();
-            return;
-        }
         exportPreferences();
     });
 
     importBtn.addEventListener('click', function() {
-        if (!checkAuthentication()) {
-            showAuthRequiredMessage();
-            return;
-        }
         importFileInput.click();
     });
 
@@ -414,61 +158,6 @@ document.addEventListener('DOMContentLoaded', function() {
             importPreferences(file);
         }
     });
-
-    // Payment button event listeners
-    const trialBtn = document.getElementById('trialBtn');
-    const payBtn = document.getElementById('payBtn');
-    const manageBtn = document.getElementById('manageBtn');
-
-    trialBtn.addEventListener('click', function(evt) {
-        evt.preventDefault();
-        extpay.openTrialPage("7-day");
-    });
-
-    payBtn.addEventListener('click', function(evt) {
-        evt.preventDefault();
-        extpay.openPaymentPage();
-    });
-
-    manageBtn.addEventListener('click', function(evt) {
-        evt.preventDefault();
-        extpay.openPaymentPage();
-    });
-
-    // Load user payment status
-    extpay.getUser()
-        .then((user) => {
-            console.log('🔐 ExtPay user data:', user);
-            // Set authentication status
-            const isAuthenticated = user.paid || isTrialActive(user);
-            window.userAuthenticated = isAuthenticated;
-            console.log('🔐 User authenticated:', isAuthenticated);
-            updatePaymentUI(user);
-        })
-        .catch((err) => {
-            console.error('ExtPay error:', err);
-            // FALLBACK: If ExtPay fails, assume user is authenticated for now
-            // This prevents breaking the extension if ExtPay is down
-            window.userAuthenticated = true;
-            console.log('🔐 ExtPay failed, allowing access as fallback');
-            document.getElementById('paymentText').innerHTML = "🎉 Premium Lifetime Access!";
-            enableExtensionFeatures();
-        });
-
-    // Listen for payment events
-    extpay.onTrialStarted.addListener((user) => {
-        console.log('Trial started!', user);
-        window.userAuthenticated = true;
-        updatePaymentUI(user);
-    });
-
-    extpay.onPaid.addListener((user) => {
-        console.log('User paid!', user);
-        window.userAuthenticated = true;
-        updatePaymentUI(user);
-    });
-
-
 
     // Listen for messages from content script
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
@@ -482,28 +171,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('🔧 Received currentSetting message:', request.data.setting);
                 injectedScriptReady = true; // Mark injected script as ready
                 updateSettingDisplay(request.data.setting);
-                
+
                 // If this is a streaming mode setting, update the streaming UI accordingly
                 if (request.data.setting && request.data.setting.name === 'streaming') {
                     console.log('🔧 Updating streaming UI for streaming mode setting');
                     const streamingToggle = document.getElementById('streamingToggle');
                     const rateSelector = document.getElementById('rateSelector');
                     const streamingRate = document.getElementById('streamingRate');
-                    
+
                     // Update UI to reflect current streaming state
                     streamingToggle.checked = true;
                     streamingRate.value = request.data.setting.rate;
                     rateSelector.style.display = 'flex';
-                    
+
                     console.log('🔧 Updated streaming UI:', {
                         toggleChecked: streamingToggle.checked,
                         rateValue: streamingRate.value,
                         rateSelectorDisplay: rateSelector.style.display
                     });
-                    
+
                     // Save the current streaming state to storage
                     saveStreamingModeState();
-                    
+
                     // Verify the streaming rate is correctly set
                     console.log('🔧 Verifying streaming rate after update:', {
                         expectedRate: request.data.setting.rate,
@@ -523,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function loadCurrentSong() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
         const activeTab = tabs[0];
-        
+
         chrome.tabs.sendMessage(activeTab.id, {
             action: 'getCurrentSong',
             source: 'popup'
@@ -537,7 +226,7 @@ function loadCurrentSong() {
                 updateSongDisplay('Not playing');
             }
         });
-        
+
         // Also load current setting
         setTimeout(loadCurrentSetting, 100);
     });
@@ -546,7 +235,7 @@ function loadCurrentSong() {
 function updateSongDisplay(title) {
     const songTitle = document.getElementById('songTitle');
     const songArtist = document.getElementById('songArtist');
-    
+
     songTitle.textContent = title || 'Not playing';
     songArtist.textContent = ''; // No longer showing artist
 }
@@ -556,16 +245,16 @@ function sendMessageToContentScript(action, data = null) {
     // Get the active tab and send message to content script
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
         const activeTab = tabs[0];
-        
+
         const message = {
             action: action,
             source: 'popup'
         };
-        
+
         if (data) {
             message.data = data;
         }
-        
+
         console.log('🔧 Sending message to tab:', activeTab.id, message);
         chrome.tabs.sendMessage(activeTab.id, message, function(response) {
             if (chrome.runtime.lastError) {
@@ -577,33 +266,10 @@ function sendMessageToContentScript(action, data = null) {
     });
 }
 
-// Send authentication status to content script
-function sendAuthenticationStatusToContentScript(authenticated) {
-    console.log('🔐 sendAuthenticationStatusToContentScript called with:', authenticated);
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-        const activeTab = tabs[0];
-        
-        const message = {
-            action: 'setAuthenticationStatus',
-            source: 'popup',
-            authenticated: authenticated
-        };
-        
-        console.log('🔐 Sending authentication status to tab:', activeTab.id, message);
-        chrome.tabs.sendMessage(activeTab.id, message, function(response) {
-            if (chrome.runtime.lastError) {
-                console.error('Error sending authentication status:', chrome.runtime.lastError);
-            } else {
-                console.log('Authentication status sent successfully:', response);
-            }
-        });
-    });
-}
-
 function loadCurrentSetting() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
         const activeTab = tabs[0];
-        
+
         chrome.tabs.sendMessage(activeTab.id, {
             action: 'getCurrentSetting',
             source: 'popup'
@@ -618,7 +284,7 @@ function loadCurrentSetting() {
 function updateSettingDisplay(setting) {
     const settingText = document.getElementById('settingText');
     const clearSettingBtn = document.getElementById('clearSettingBtn');
-    
+
     if (setting) {
         // Handle streaming mode setting differently
         if (setting.name === 'streaming') {
@@ -635,7 +301,7 @@ function updateSettingDisplay(setting) {
                 'normalSpeed': 'Normal Speed',
                 'slowed': 'Slowed'
             };
-            
+
             settingText.textContent = `Saved: ${settingNames[setting.name] || setting.name}`;
             clearSettingBtn.style.display = 'inline-block';
         }
@@ -664,15 +330,15 @@ function showNotification(message) {
         transform: translateY(-10px);
         transition: all 0.3s ease;
     `;
-    
+
     document.body.appendChild(notification);
-    
+
     // Animate in
     setTimeout(() => {
         notification.style.opacity = '1';
         notification.style.transform = 'translateY(0)';
     }, 10);
-    
+
     // Remove after 2 seconds
     setTimeout(() => {
         notification.style.opacity = '0';
@@ -687,12 +353,12 @@ function showNotification(message) {
 function saveStreamingModeState() {
     const streamingToggle = document.getElementById('streamingToggle');
     const streamingRate = document.getElementById('streamingRate');
-    
+
     const state = {
         enabled: streamingToggle.checked,
         rate: streamingRate.value
     };
-    
+
     chrome.storage.local.set({ 'tunevo_streaming_mode': state }, function() {
         console.log('Streaming mode state saved:', state);
     });
@@ -703,16 +369,16 @@ function loadStreamingModeState() {
     chrome.storage.local.get('tunevo_streaming_mode', function(result) {
         const state = result.tunevo_streaming_mode || { enabled: false, rate: 'normal' };
         console.log('🔧 Loaded streaming mode state from storage:', state);
-        
+
         const streamingToggle = document.getElementById('streamingToggle');
         const rateSelector = document.getElementById('rateSelector');
         const streamingRate = document.getElementById('streamingRate');
-        
+
         streamingToggle.checked = state.enabled;
-        
+
         // Explicitly set the streaming rate value to ensure it's not defaulting to first option
         streamingRate.value = state.rate;
-        
+
         // Double-check that the value was set correctly
         if (streamingRate.value !== state.rate) {
             console.log('🔧 Warning: streamingRate.value was not set correctly, forcing it...');
@@ -724,33 +390,26 @@ function loadStreamingModeState() {
                 }
             }
         }
-        
+
         rateSelector.style.display = state.enabled ? 'flex' : 'none';
-        
+
         // Update control buttons state based on streaming mode
         updateControlButtonsState(state.enabled);
-        
+
         console.log('🔧 Updated UI elements:', {
             toggleChecked: streamingToggle.checked,
             rateValue: streamingRate.value,
             rateSelectorDisplay: rateSelector.style.display
         });
-        
+
         // If streaming mode was enabled, restore it and also get current state from injected script
         if (state.enabled) {
             console.log('🔧 Streaming mode was enabled, restoring...');
-            
-            // Wait for injected script to be ready before proceeding
-            if (!injectedScriptReady) {
-                console.log('🔧 Injected script not ready yet, waiting...');
-                setTimeout(() => loadStreamingModeState(), 100);
-                return;
-            }
-            
+
             // First, get the current streaming state from the injected script to ensure sync
             console.log('🔧 Sending getCurrentSetting message...');
             sendMessageToContentScript('getCurrentSetting');
-            
+
             // Wait a bit before enabling streaming mode to allow getCurrentSetting to complete
             setTimeout(() => {
                 console.log('🔧 Sending enableStreamingMode message...');
@@ -766,11 +425,11 @@ function updateStreamingModeDisplay(data) {
     const streamingToggle = document.getElementById('streamingToggle');
     const rateSelector = document.getElementById('rateSelector');
     const streamingRate = document.getElementById('streamingRate');
-    
+
     streamingToggle.checked = data.enabled;
     streamingRate.value = data.rate;
     rateSelector.style.display = data.enabled ? 'flex' : 'none';
-    
+
     // Update control buttons state based on streaming mode
     updateControlButtonsState(data.enabled);
 }
@@ -779,7 +438,7 @@ function updateControlButtonsState(streamingModeEnabled) {
     const speedUpBtn = document.getElementById('speedUpId');
     const normalSpeedBtn = document.getElementById('normalSpeedId');
     const slowedBtn = document.getElementById('slowedId');
-    
+
     // Disable buttons when streaming mode is enabled, enable when disabled
     speedUpBtn.disabled = streamingModeEnabled;
     normalSpeedBtn.disabled = streamingModeEnabled;
@@ -795,13 +454,13 @@ function clearAllPreferences() {
         } else {
             console.log('All preferences cleared successfully');
             showNotification('All preferences cleared!');
-            
+
             // Reset UI to default state
             resetUIToDefault();
-            
+
             // Refresh the current tab to apply changes
             refreshCurrentTab();
-            
+
             // Close the popup
             window.close();
         }
@@ -813,17 +472,17 @@ function resetUIToDefault() {
     const streamingToggle = document.getElementById('streamingToggle');
     const rateSelector = document.getElementById('rateSelector');
     const streamingRate = document.getElementById('streamingRate');
-    
+
     streamingToggle.checked = false;
     rateSelector.style.display = 'none';
     streamingRate.value = 'normal';
-    
+
     // Enable control buttons
     updateControlButtonsState(false);
-    
+
     // Reset setting display
     updateSettingDisplay(null);
-    
+
     // Reset song display
     updateSongDisplay('Loading...');
 }
@@ -846,7 +505,7 @@ function refreshCurrentTab() {
 // Export preferences function
 function exportPreferences() {
     console.log('📤 Exporting preferences...');
-    
+
     // Get all relevant data from chrome.storage.local
     chrome.storage.local.get(['tunevo_song_settings', 'tunevo_streaming_mode'], function(result) {
         const exportData = {
@@ -855,20 +514,20 @@ function exportPreferences() {
             songSettings: result.tunevo_song_settings || {},
             streamingMode: result.tunevo_streaming_mode || { enabled: false, rate: 'normal' }
         };
-        
+
         // Create and download the file
         const dataStr = JSON.stringify(exportData, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(dataBlob);
-        
+
         const link = document.createElement('a');
         link.href = url;
-        link.download = `tunevo-preferences-${new Date().toISOString().split('T')[0]}.json`;
+        link.download = `variatify-preferences-${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
+
         const songCount = Object.keys(exportData.songSettings).length;
         showNotification(`✅ Exported ${songCount} song preferences!`);
         console.log('📤 Export completed:', exportData);
@@ -878,28 +537,28 @@ function exportPreferences() {
 // Import preferences function
 function importPreferences(file) {
     console.log('📥 Importing preferences from file:', file.name);
-    
+
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
             const importData = JSON.parse(e.target.result);
-            
+
             // Validate the import data structure
             if (!importData.version || !importData.songSettings || !importData.streamingMode) {
-                throw new Error('Invalid file format. Please select a valid Tunevo preferences file.');
+                throw new Error('Invalid file format. Please select a valid Variatify preferences file.');
             }
-            
+
             // Confirm import with user
             const songCount = Object.keys(importData.songSettings).length;
             const confirmMessage = `Import ${songCount} song preferences and streaming mode settings?\n\nThis will replace your current preferences.`;
-            
+
             if (confirm(confirmMessage)) {
                 // Import the data
                 const dataToImport = {
                     tunevo_song_settings: importData.songSettings,
                     tunevo_streaming_mode: importData.streamingMode
                 };
-                
+
                 chrome.storage.local.set(dataToImport, function() {
                     if (chrome.runtime.lastError) {
                         console.error('Error importing preferences:', chrome.runtime.lastError);
@@ -907,11 +566,11 @@ function importPreferences(file) {
                     } else {
                         console.log('📥 Import completed successfully:', dataToImport);
                         showNotification(`✅ Imported ${songCount} song preferences!`);
-                        
+
                         // Refresh the UI to reflect imported settings
                         loadStreamingModeState();
                         loadCurrentSetting();
-                        
+
                         // Refresh the current tab to apply changes
                         refreshCurrentTab();
                     }
@@ -919,14 +578,14 @@ function importPreferences(file) {
             }
         } catch (error) {
             console.error('Error parsing import file:', error);
-            showNotification('❌ Invalid file format. Please select a valid Tunevo preferences file.');
+            showNotification('❌ Invalid file format. Please select a valid Variatify preferences file.');
         }
     };
-    
+
     reader.onerror = function() {
         console.error('Error reading file');
         showNotification('❌ Error reading file. Please try again.');
     };
-    
+
     reader.readAsText(file);
 }
