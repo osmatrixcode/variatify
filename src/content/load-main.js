@@ -72,58 +72,30 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             const songInfo = getCurrentSongInfo();
             sendResponse({songInfo: songInfo});
         } else if (request.action === 'getCurrentSetting' || request.action === 'clearCurrentSetting' || request.action === 'listAllSettings') {
-            // Check authentication before processing
-            if (!checkContentScriptAuthentication()) {
-                sendResponse({error: 'Authentication required'});
-                return;
-            }
             // Forward these messages to the injected script and wait for response
             window.postMessage({
                 action: request.action,
                 source: 'content-script'
             }, '*');
-            
+
             // Don't send immediate response, wait for injected script response
             return true; // Keep message channel open
         } else if (request.action === 'enableStreamingMode' || request.action === 'disableStreamingMode' || request.action === 'updateStreamingRate') {
-            // Check authentication before processing
-            if (!checkContentScriptAuthentication()) {
-                sendResponse({error: 'Authentication required'});
-                return;
-            }
             // Forward streaming mode messages to the injected script
             window.postMessage({
                 action: request.action,
                 data: request.data,
                 source: 'content-script'
             }, '*');
-            
+
             sendResponse({status: 'Streaming mode message forwarded to injected script'});
-        } else if (request.action === 'setAuthenticationStatus') {
-            // Handle authentication status updates from popup
-            window.contentScriptAuthenticated = request.authenticated;
-            console.log('🔐 Content script authentication status updated:', request.authenticated);
-            
-            // Forward to injected script
-            window.postMessage({
-                action: 'setAuthenticationStatus',
-                authenticated: request.authenticated,
-                source: 'content-script'
-            }, '*');
-            
-            sendResponse({status: 'Authentication status updated'});
         } else {
-            // Check authentication before processing
-            if (!checkContentScriptAuthentication()) {
-                sendResponse({error: 'Authentication required'});
-                return;
-            }
             // Forward other messages to the injected script
             window.postMessage({
                 action: request.action,
                 source: 'content-script'
             }, '*');
-            
+
             sendResponse({status: 'Message forwarded to injected script'});
         }
     }
@@ -174,7 +146,7 @@ function getCurrentSongInfo() {
 window.addEventListener('message', function(event) {
     if (event.data.source === 'injected-script') {
         console.log('Response from injected script:', event.data);
-        
+
         // Handle storage operations from injected script
         if (event.data.action === 'saveSongSetting') {
             saveSongSetting(event.data.songId, event.data.effect).then(success => {
@@ -211,7 +183,7 @@ window.addEventListener('message', function(event) {
                 }, '*');
             });
         }
-        
+
         // Handle specific responses that need to be sent back to popup
         if (event.data.action === 'currentSetting' || event.data.action === 'settingCleared' || event.data.action === 'allSettings') {
             console.log('🔧 Forwarding message to popup:', event.data.action, event.data);
@@ -232,114 +204,3 @@ window.addEventListener('message', function(event) {
         }
     }
 });
-
-// Payment status indicator for Spotify pages
-const extpay = ExtPay("tunevo-test");
-
-// Check authentication status in content script
-function checkContentScriptAuthentication() {
-  // This will be set by the ExtPay user status check
-  console.log('🔐 Content script authentication:', window.contentScriptAuthenticated);
-  return window.contentScriptAuthenticated || false;
-}
-
-// Check user status and show appropriate indicator
-extpay.getUser().then((user) => {
-  // Set authentication status
-  const isTrialActive = user.trialStartedAt && (() => {
-    const now = new Date();
-    const trialEnd = new Date(user.trialStartedAt.getTime() + (7 * 24 * 60 * 60 * 1000));
-    return now < trialEnd;
-  })();
-  
-  window.contentScriptAuthenticated = user.paid || isTrialActive;
-  
-  // Send authentication status to injected script
-  window.postMessage({
-    source: 'content-script',
-    action: 'setAuthenticationStatus',
-    authenticated: window.contentScriptAuthenticated
-  }, '*');
-  
-  // Only show payment status if user is not paid and trial is expired
-  if (!user.paid && user.trialStartedAt) {
-    const now = new Date();
-    const trialEnd = new Date(user.trialStartedAt.getTime() + (7 * 24 * 60 * 60 * 1000));
-    if (now >= trialEnd) {
-      // Trial expired - show upgrade prompt
-      showPaymentPrompt();
-    }
-  }
-}).catch((err) => {
-  console.error('ExtPay error in content script:', err);
-  // FALLBACK: If ExtPay fails, assume user is authenticated for now
-  window.contentScriptAuthenticated = true;
-  console.log('🔐 Content script: ExtPay failed, allowing access as fallback');
-  
-  // Send authentication status to injected script (fallback case)
-  window.postMessage({
-    source: 'content-script',
-    action: 'setAuthenticationStatus',
-    authenticated: window.contentScriptAuthenticated
-  }, '*');
-});
-
-function showPaymentPrompt() {
-  // Create a subtle payment prompt
-  const prompt = document.createElement("div");
-  prompt.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 12px 16px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 10000;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
-    max-width: 250px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-  `;
-  
-  prompt.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <span>🎧</span>
-      <div>
-        <div style="font-weight: 600; margin-bottom: 4px;">Tunevo Premium</div>
-        <div style="font-size: 12px; opacity: 0.9;">Trial expired - Upgrade now!</div>
-      </div>
-    </div>
-  `;
-  
-  prompt.addEventListener('click', () => {
-    extpay.openPaymentPage();
-  });
-  
-  prompt.addEventListener('mouseenter', () => {
-    prompt.style.transform = 'translateY(-2px)';
-    prompt.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
-  });
-  
-  prompt.addEventListener('mouseleave', () => {
-    prompt.style.transform = 'translateY(0)';
-    prompt.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
-  });
-  
-  document.body.appendChild(prompt);
-  
-  // Auto-hide after 10 seconds
-  setTimeout(() => {
-    if (prompt.parentNode) {
-      prompt.style.opacity = '0';
-      prompt.style.transform = 'translateY(-10px)';
-      setTimeout(() => {
-        if (prompt.parentNode) {
-          prompt.parentNode.removeChild(prompt);
-        }
-      }, 300);
-    }
-  }, 10000);
-}

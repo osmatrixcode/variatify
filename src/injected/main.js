@@ -1,5 +1,5 @@
 //intercept new audio and video elements
-const originalCreateElement = document.createElement; 
+const originalCreateElement = document.createElement;
 const spotifyPlaybackEls = [];
 
 // State management for current effect
@@ -18,26 +18,6 @@ let streamingMode = {
   rate: 'normal'
 };
 
-// Authentication state
-let isAuthenticated = false;
-
-// Function to check authentication status
-function checkAuthentication() {
-  return isAuthenticated;
-}
-
-// Function to set authentication status (called from content script)
-function setAuthenticationStatus(authenticated) {
-  isAuthenticated = authenticated;
-  console.log('🔐 Injected script authentication status:', authenticated);
-  
-  if (!authenticated) {
-    // If not authenticated, disable all effects and reset to normal
-    applyNormalSpeedWithoutSaving();
-    console.log('🔐 Trial expired - all effects disabled');
-  }
-}
-
 // Storage functions that communicate with content script
 function getSongId(title) {
   return title.toLowerCase().trim();
@@ -50,7 +30,7 @@ function saveSongSetting(songId, effect) {
     songId: songId,
     effect: effect
   }, '*');
-  
+
   // Set up a one-time listener for the response to log success/failure
   const responseHandler = function(event) {
     if (event.data.source === 'content-script' && event.data.action === 'saveSongSettingResponse') {
@@ -62,9 +42,9 @@ function saveSongSetting(songId, effect) {
       }
     }
   };
-  
+
   window.addEventListener('message', responseHandler);
-  
+
   // Clean up listener after 2 seconds
   setTimeout(() => {
     window.removeEventListener('message', responseHandler);
@@ -80,16 +60,16 @@ function loadSongSetting(songId) {
         resolve(event.data.setting);
       }
     };
-    
+
     window.addEventListener('message', responseHandler);
-    
+
     // Send the request
     window.postMessage({
       source: 'injected-script',
       action: 'loadSongSetting',
       songId: songId
     }, '*');
-    
+
     // Timeout after 1 second
     setTimeout(() => {
       window.removeEventListener('message', responseHandler);
@@ -143,24 +123,24 @@ function getCurrentSongInfo() {
 function checkForSongChange() {
   const songInfo = getCurrentSongInfo();
   const newSongId = getSongId(songInfo.title);
-  
+
   if (newSongId !== currentSongId && songInfo.title !== 'Not playing') {
     console.log(`🎵 Song changed from "${currentSongId}" to "${newSongId}"`);
     currentSongId = newSongId;
-    
+
     // Notify content script about song change
     window.postMessage({
       source: 'injected-script',
       action: 'songChanged',
       songInfo: songInfo
     }, '*');
-    
+
     // If streaming mode is enabled, apply streaming rate to new song
     if (streamingMode.enabled) {
       console.log(`🎵 Streaming mode active, applying ${streamingMode.rate} to new song "${newSongId}"`);
       applyStreamingRate(streamingMode.rate);
-    } else if (checkAuthentication()) {
-      // Only load and apply saved settings if authenticated
+    } else {
+      // Load and apply saved settings
       loadSongSetting(newSongId).then((savedSetting) => {
         if (savedSetting) {
           console.log(`🔄 Applying saved setting for "${newSongId}":`, savedSetting);
@@ -171,13 +151,9 @@ function checkForSongChange() {
           applyNormalSpeedWithoutSaving();
         }
       });
-    } else {
-      // Not authenticated - just reset to normal speed
-      console.log(`🔐 Trial expired - resetting to normal speed for "${newSongId}"`);
-      applyNormalSpeedWithoutSaving();
     }
   }
-  
+
   // Debug: Log current song info periodically (less verbose)
   if (songInfo.title !== 'Not playing' && Math.random() < 0.1) { // Only log 10% of the time
     console.log(`🎵 Currently playing: "${songInfo.title}" (ID: ${newSongId})`);
@@ -222,15 +198,15 @@ function listAllSavedSettings() {
         resolve(event.data.settings);
       }
     };
-    
+
     window.addEventListener('message', responseHandler);
-    
+
     // Send the request
     window.postMessage({
       source: 'injected-script',
       action: 'listAllSettings'
     }, '*');
-    
+
     // Timeout after 1 second
     setTimeout(() => {
       window.removeEventListener('message', responseHandler);
@@ -261,8 +237,8 @@ Object.defineProperty(HTMLMediaElement.prototype, "playbackRate", {
       return;
     }
 
-    if (value.source !== "tunevo") {
-      console.info("🎧 Tunevo: Prevented unintended playback rate change.");
+    if (value.source !== "variatify") {
+      console.info("🎧 Variatify: Prevented unintended playback rate change.");
       playbackRateDescriptor.set.call(this, currentEffect.rate);
     } else {
       playbackRateDescriptor.set.call(this, value.value);
@@ -295,13 +271,13 @@ function applyTunevo(rate = null, pitch = null) {
         break;
     }
   }
-  
+
   // Use current effect if no parameters provided
   const targetRate = rate !== null ? rate : currentEffect.rate;
   const targetPitch = pitch !== null ? pitch : currentEffect.pitch;
-  
+
   spotifyPlaybackEls.forEach((el) => {
-    el.playbackRate = { source: "tunevo", value: targetRate };
+    el.playbackRate = { source: "variatify", value: targetRate };
     el.preservesPitch = targetPitch;
     console.log(`🎛️ Applied: ${targetRate}x speed, preservesPitch = ${targetPitch}`);
   });
@@ -309,53 +285,38 @@ function applyTunevo(rate = null, pitch = null) {
 
 // New functions for different effects
 function speedUp() {
-  if (!checkAuthentication()) {
-    console.log('🔐 Trial expired - cannot apply speed up effect');
-    return;
-  }
-  
   currentEffect = { rate: 1.25, pitch: false, name: 'speedUp' };
   applyTunevo(1.25, false);
-  
+
   // Save setting for current song
   if (currentSongId) {
     saveSongSetting(currentSongId, currentEffect);
   }
-  
+
   console.log("🚀 Speed up effect applied");
 }
 
 function normalSpeed() {
-  if (!checkAuthentication()) {
-    console.log('🔐 Trial expired - cannot apply normal speed effect');
-    return;
-  }
-  
   currentEffect = { rate: 1.0, pitch: true, name: 'normalSpeed' };
   applyTunevo(1.0, true);
-  
+
   // Save setting for current song
   if (currentSongId) {
     saveSongSetting(currentSongId, currentEffect);
   }
-  
+
   console.log("🎵 Normal speed restored");
 }
 
 function slowed() {
-  if (!checkAuthentication()) {
-    console.log('🔐 Trial expired - cannot apply slowed effect');
-    return;
-  }
-  
   currentEffect = { rate: 0.8, pitch: false, name: 'slowed' };
   applyTunevo(0.8, false);
-  
+
   // Save setting for current song
   if (currentSongId) {
     saveSongSetting(currentSongId, currentEffect);
   }
-  
+
   console.log("🐌 Slowed effect applied");
 }
 
@@ -372,7 +333,7 @@ function enableStreamingMode(rate) {
   console.log('🔧 enableStreamingMode called with rate:', rate);
   streamingMode.enabled = true;
   streamingMode.rate = rate;
-  
+
   // Update current effect to match streaming rate
   switch(rate) {
     case 'slowed':
@@ -385,17 +346,17 @@ function enableStreamingMode(rate) {
       currentEffect = { rate: 1.25, pitch: false, name: 'streaming_speedUp' };
       break;
   }
-  
+
   // Apply the streaming rate to all current playback elements
   applyStreamingRate(rate);
-  
+
   console.log(`🎵 Streaming mode enabled with ${rate} playback, currentEffect updated:`, currentEffect);
 }
 
 function disableStreamingMode() {
   console.log('🔧 disableStreamingMode called');
   streamingMode.enabled = false;
-  
+
   // Restore per-song settings if available
   if (currentSongId) {
     loadSongSetting(currentSongId).then((savedSetting) => {
@@ -411,7 +372,7 @@ function disableStreamingMode() {
     console.log(`📝 No current song ID, resetting to normal speed`);
     applyNormalSpeedWithoutSaving();
   }
-  
+
   console.log("🎵 Streaming mode disabled, restored per-song settings");
 }
 
@@ -419,7 +380,7 @@ function updateStreamingRate(rate) {
   if (streamingMode.enabled) {
     console.log('🔧 updateStreamingRate called with rate:', rate);
     streamingMode.rate = rate;
-    
+
     // Update current effect to match new streaming rate
     switch(rate) {
       case 'slowed':
@@ -432,7 +393,7 @@ function updateStreamingRate(rate) {
         currentEffect = { rate: 1.25, pitch: false, name: 'streaming_speedUp' };
         break;
     }
-    
+
     applyStreamingRate(rate);
     console.log(`🎵 Streaming rate updated to ${rate}, currentEffect updated:`, currentEffect);
   }
@@ -473,15 +434,15 @@ const initTunevo = () => {
   }, 1000);
 };
 
-console.log("🚀 Tunevo initializing...");
+console.log("🚀 Variatify initializing...");
 setTimeout(() => {
   initTunevo();
   applyTunevo(); // initial force
-  
+
   // Initialize current song ID
   const songInfo = getCurrentSongInfo();
   currentSongId = getSongId(songInfo.title);
-  
+
   // Load and apply saved setting for current song if available
   if (currentSongId && songInfo.title !== 'Not playing') {
     loadSongSetting(currentSongId).then((savedSetting) => {
@@ -491,19 +452,16 @@ setTimeout(() => {
       }
     });
   }
-  
-  console.log("✅ Tunevo running.");
+
+  console.log("✅ Variatify running.");
 }, 2000);
 
 // Listen for messages from content script
 window.addEventListener('message', function(event) {
     if (event.data.source === 'content-script') {
         console.log('Received message from popup:', event.data.action, event.data);
-        
+
         switch(event.data.action) {
-            case 'setAuthenticationStatus':
-                setAuthenticationStatus(event.data.authenticated);
-                break;
             case 'speedUp':
                 if (!streamingMode.enabled) {
                     speedUp();
@@ -575,9 +533,9 @@ window.addEventListener('message', function(event) {
             default:
                 console.log('Unknown action:', event.data.action);
         }
-        
+
         // Send response back to content script for regular actions
-        if (!['getCurrentSetting', 'clearCurrentSetting', 'enableStreamingMode', 'disableStreamingMode', 'updateStreamingRate', 'setAuthenticationStatus'].includes(event.data.action)) {
+        if (!['getCurrentSetting', 'clearCurrentSetting', 'enableStreamingMode', 'disableStreamingMode', 'updateStreamingRate'].includes(event.data.action)) {
             window.postMessage({
                 source: 'injected-script',
                 status: 'Action executed: ' + event.data.action
