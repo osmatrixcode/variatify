@@ -1,167 +1,129 @@
-//intercept new audio and video elements
-const originalCreateElement = document.createElement;
-const spotifyPlaybackEls = [];
+// Variatify Main Script
+// Entry point for the injected script - coordinates audio manipulation and song detection
 
-// State management for current effect
-let currentEffect = {
-  rate: 1.00,
-  pitch: true,
-  name: 'normal speed'
+// Global state (accessible to other modules via window.variatifyState)
+window.variatifyState = {
+  currentEffect: { ...VARIATIFY.EFFECTS.NORMAL },
+  currentSongId: null,
+  streamingMode: { enabled: false, rate: 'normal' }
 };
 
-// Current song tracking
-let currentSongId = null;
-
-// Streaming mode state
-let streamingMode = {
-  enabled: false,
-  rate: 'normal'
-};
-
-// Storage functions that communicate with content script
-function getSongId(title) {
-  return title.toLowerCase().trim();
-}
-
+// Storage communication functions
 function saveSongSetting(songId, effect) {
   window.postMessage({
-    source: 'injected-script',
+    source: VARIATIFY.SOURCE.INJECTED,
     action: 'saveSongSetting',
     songId: songId,
     effect: effect
   }, '*');
-
-  // Set up a one-time listener for the response to log success/failure
-  const responseHandler = function(event) {
-    if (event.data.source === 'content-script' && event.data.action === 'saveSongSettingResponse') {
-      window.removeEventListener('message', responseHandler);
-      if (event.data.success) {
-        console.log(`✅ Successfully saved setting for "${songId}"`);
-      } else {
-        console.error(`❌ Failed to save setting for "${songId}"`);
-      }
-    }
-  };
-
-  window.addEventListener('message', responseHandler);
-
-  // Clean up listener after 2 seconds
-  setTimeout(() => {
-    window.removeEventListener('message', responseHandler);
-  }, 2000);
 }
 
 function loadSongSetting(songId) {
   return new Promise((resolve) => {
-    // Set up a one-time listener for the response
-    const responseHandler = function(event) {
-      if (event.data.source === 'content-script' && event.data.action === 'loadSongSettingResponse' && event.data.songId === songId) {
-        window.removeEventListener('message', responseHandler);
+    const handler = (event) => {
+      if (event.data.source === VARIATIFY.SOURCE.CONTENT &&
+          event.data.action === 'loadSongSettingResponse' &&
+          event.data.songId === songId) {
+        window.removeEventListener('message', handler);
         resolve(event.data.setting);
       }
     };
 
-    window.addEventListener('message', responseHandler);
-
-    // Send the request
+    window.addEventListener('message', handler);
     window.postMessage({
-      source: 'injected-script',
+      source: VARIATIFY.SOURCE.INJECTED,
       action: 'loadSongSetting',
       songId: songId
     }, '*');
 
-    // Timeout after 1 second
     setTimeout(() => {
-      window.removeEventListener('message', responseHandler);
-      console.warn(`⚠️ Timeout loading setting for "${songId}", falling back to null`);
+      window.removeEventListener('message', handler);
       resolve(null);
-    }, 1000);
+    }, VARIATIFY.TIMEOUTS.MESSAGE_TIMEOUT);
   });
 }
 
-function getCurrentSongInfo() {
-  try {
-    // Try multiple selectors to find song title on Spotify
-    const selectors = [
-      '[data-testid="now-playing-widget"] [data-testid="context-item-info-title"]',
-      '[data-testid="context-item-info-title"]',
-      '.now-playing-bar [data-testid="context-item-info-title"]',
-      '.now-playing-bar .track-info__name',
-      '[data-testid="track-info"] [data-testid="context-item-info-title"]',
-      '.track-info__name'
-    ];
+function clearSongSetting(songId) {
+  window.postMessage({
+    source: VARIATIFY.SOURCE.INJECTED,
+    action: 'clearSongSetting',
+    songId: songId
+  }, '*');
+}
 
-    let title = 'Not playing';
-
-    // Try to find title
-    for (let selector of selectors) {
-      const element = document.querySelector(selector);
-      if (element && element.textContent.trim()) {
-        title = element.textContent.trim();
-        break;
+function listAllSavedSettings() {
+  return new Promise((resolve) => {
+    const handler = (event) => {
+      if (event.data.source === VARIATIFY.SOURCE.CONTENT &&
+          event.data.action === 'listAllSettingsResponse') {
+        window.removeEventListener('message', handler);
+        resolve(event.data.settings);
       }
-    }
+    };
 
-    // Fallback: try to get from page title
-    if (title === 'Not playing') {
-      const pageTitle = document.title;
-      if (pageTitle && pageTitle.includes(' - ')) {
-        const parts = pageTitle.split(' - ');
-        if (parts.length >= 2) {
-          title = parts[0].trim();
-        }
-      }
-    }
+    window.addEventListener('message', handler);
+    window.postMessage({
+      source: VARIATIFY.SOURCE.INJECTED,
+      action: 'listAllSettings'
+    }, '*');
 
-    return { title };
-  } catch (error) {
-    console.error('Error getting song info:', error);
-    return { title: 'Not playing' };
+    setTimeout(() => {
+      window.removeEventListener('message', handler);
+      resolve({});
+    }, VARIATIFY.TIMEOUTS.MESSAGE_TIMEOUT);
+  });
+}
+
+// Effect application functions
+function applyCurrentEffect() {
+  const state = window.variatifyState;
+
+  if (state.streamingMode.enabled) {
+    const { rate, pitch } = getStreamingRateValues(state.streamingMode.rate);
+    applyEffect(rate, pitch);
+  } else {
+    applyEffect(state.currentEffect.rate, state.currentEffect.pitch);
   }
 }
 
-function checkForSongChange() {
-  const songInfo = getCurrentSongInfo();
-  const newSongId = getSongId(songInfo.title);
+function speedUp() {
+  const state = window.variatifyState;
+  state.currentEffect = { ...VARIATIFY.EFFECTS.SPEED_UP };
+  applyEffect(state.currentEffect.rate, state.currentEffect.pitch);
 
-  if (newSongId !== currentSongId && songInfo.title !== 'Not playing') {
-    console.log(`🎵 Song changed from "${currentSongId}" to "${newSongId}"`);
-    currentSongId = newSongId;
-
-    // Notify content script about song change
-    window.postMessage({
-      source: 'injected-script',
-      action: 'songChanged',
-      songInfo: songInfo
-    }, '*');
-
-    // If streaming mode is enabled, apply streaming rate to new song
-    if (streamingMode.enabled) {
-      console.log(`🎵 Streaming mode active, applying ${streamingMode.rate} to new song "${newSongId}"`);
-      applyStreamingRate(streamingMode.rate);
-    } else {
-      // Load and apply saved settings
-      loadSongSetting(newSongId).then((savedSetting) => {
-        if (savedSetting) {
-          console.log(`🔄 Applying saved setting for "${newSongId}":`, savedSetting);
-          applyEffectByName(savedSetting.name);
-        } else {
-          console.log(`📝 No saved setting found for "${newSongId}", resetting to normal speed`);
-          // Reset to normal speed when no saved setting (don't save this as a setting)
-          applyNormalSpeedWithoutSaving();
-        }
-      });
-    }
+  if (state.currentSongId) {
+    saveSongSetting(state.currentSongId, state.currentEffect);
   }
+}
 
-  // Debug: Log current song info periodically (less verbose)
-  if (songInfo.title !== 'Not playing' && Math.random() < 0.1) { // Only log 10% of the time
-    console.log(`🎵 Currently playing: "${songInfo.title}" (ID: ${newSongId})`);
+function normalSpeed() {
+  const state = window.variatifyState;
+  state.currentEffect = { ...VARIATIFY.EFFECTS.NORMAL };
+  applyEffect(state.currentEffect.rate, state.currentEffect.pitch);
+
+  if (state.currentSongId) {
+    saveSongSetting(state.currentSongId, state.currentEffect);
   }
+}
+
+function slowed() {
+  const state = window.variatifyState;
+  state.currentEffect = { ...VARIATIFY.EFFECTS.SLOWED };
+  applyEffect(state.currentEffect.rate, state.currentEffect.pitch);
+
+  if (state.currentSongId) {
+    saveSongSetting(state.currentSongId, state.currentEffect);
+  }
+}
+
+function applyNormalSpeedWithoutSaving() {
+  const state = window.variatifyState;
+  state.currentEffect = { ...VARIATIFY.EFFECTS.NORMAL };
+  applyEffect(state.currentEffect.rate, state.currentEffect.pitch);
 }
 
 function applyEffectByName(effectName) {
-  switch(effectName) {
+  switch (effectName) {
     case 'speedUp':
       speedUp();
       break;
@@ -171,375 +133,201 @@ function applyEffectByName(effectName) {
     case 'slowed':
       slowed();
       break;
-    default:
-      console.log('Unknown effect name:', effectName);
   }
 }
-
-function getCurrentSongSetting() {
-  if (!currentSongId) return Promise.resolve(null);
-  return loadSongSetting(currentSongId);
-}
-
-function clearSongSetting(songId) {
-  window.postMessage({
-    source: 'injected-script',
-    action: 'clearSongSetting',
-    songId: songId
-  }, '*');
-}
-
-function listAllSavedSettings() {
-  return new Promise((resolve) => {
-    // Set up a one-time listener for the response
-    const responseHandler = function(event) {
-      if (event.data.source === 'content-script' && event.data.action === 'listAllSettingsResponse') {
-        window.removeEventListener('message', responseHandler);
-        resolve(event.data.settings);
-      }
-    };
-
-    window.addEventListener('message', responseHandler);
-
-    // Send the request
-    window.postMessage({
-      source: 'injected-script',
-      action: 'listAllSettings'
-    }, '*');
-
-    // Timeout after 1 second
-    setTimeout(() => {
-      window.removeEventListener('message', responseHandler);
-      resolve({});
-    }, 1000);
-  });
-}
-
-document.createElement = function (tagName, ...args) {
-  const el = originalCreateElement.call(this, tagName, ...args);
-  if (tagName === "audio" || tagName === "video") {
-    spotifyPlaybackEls.push(el);
-  }
-  return el;
-};
-
-// Store the original playbackRate descriptor
-const playbackRateDescriptor = Object.getOwnPropertyDescriptor(
-  HTMLMediaElement.prototype,
-  "playbackRate"
-);
-
-// Set playback rate
-Object.defineProperty(HTMLMediaElement.prototype, "playbackRate", {
-  set(value) {
-    if (this.parentElement?.className.toLowerCase().includes("canvas")) {
-      playbackRateDescriptor.set.call(this, 1); // Ignore Spotify's fake canvas audio
-      return;
-    }
-
-    if (value.source !== "variatify") {
-      console.info("🎧 Variatify: Prevented unintended playback rate change.");
-      playbackRateDescriptor.set.call(this, currentEffect.rate);
-    } else {
-      playbackRateDescriptor.set.call(this, value.value);
-    }
-  },
-  get() {
-    return playbackRateDescriptor.get.call(this);
-  },
-});
-
-
-
-// Enforce pitch + speed
-function applyTunevo(rate = null, pitch = null) {
-  // If streaming mode is enabled, use streaming rate instead of current effect
-  if (streamingMode.enabled && rate === null) {
-    console.log(`🎵 Streaming mode active, using streaming rate: ${streamingMode.rate}`);
-    switch(streamingMode.rate) {
-      case 'slowed':
-        rate = 0.8;
-        pitch = false;
-        break;
-      case 'normal':
-        rate = 1.0;
-        pitch = true;
-        break;
-      case 'speedUp':
-        rate = 1.25;
-        pitch = false;
-        break;
-    }
-  }
-
-  // Use current effect if no parameters provided
-  const targetRate = rate !== null ? rate : currentEffect.rate;
-  const targetPitch = pitch !== null ? pitch : currentEffect.pitch;
-
-  spotifyPlaybackEls.forEach((el) => {
-    el.playbackRate = { source: "variatify", value: targetRate };
-    el.preservesPitch = targetPitch;
-    console.log(`🎛️ Applied: ${targetRate}x speed, preservesPitch = ${targetPitch}`);
-  });
-}
-
-// New functions for different effects
-function speedUp() {
-  currentEffect = { rate: 1.25, pitch: false, name: 'speedUp' };
-  applyTunevo(1.25, false);
-
-  // Save setting for current song
-  if (currentSongId) {
-    saveSongSetting(currentSongId, currentEffect);
-  }
-
-  console.log("🚀 Speed up effect applied");
-}
-
-function normalSpeed() {
-  currentEffect = { rate: 1.0, pitch: true, name: 'normalSpeed' };
-  applyTunevo(1.0, true);
-
-  // Save setting for current song
-  if (currentSongId) {
-    saveSongSetting(currentSongId, currentEffect);
-  }
-
-  console.log("🎵 Normal speed restored");
-}
-
-function slowed() {
-  currentEffect = { rate: 0.8, pitch: false, name: 'slowed' };
-  applyTunevo(0.8, false);
-
-  // Save setting for current song
-  if (currentSongId) {
-    saveSongSetting(currentSongId, currentEffect);
-  }
-
-  console.log("🐌 Slowed effect applied");
-}
-
-// Apply normal speed without saving (for when no saved setting exists)
-function applyNormalSpeedWithoutSaving() {
-  currentEffect = { rate: 1.0, pitch: true, name: 'normalSpeed' };
-  applyTunevo(1.0, true);
-  console.log("🎵 Reset to normal speed (no saved setting)");
-}
-
 
 // Streaming mode functions
 function enableStreamingMode(rate) {
-  console.log('🔧 enableStreamingMode called with rate:', rate);
-  streamingMode.enabled = true;
-  streamingMode.rate = rate;
+  const state = window.variatifyState;
+  state.streamingMode.enabled = true;
+  state.streamingMode.rate = rate;
 
-  // Update current effect to match streaming rate
-  switch(rate) {
-    case 'slowed':
-      currentEffect = { rate: 0.8, pitch: false, name: 'streaming_slowed' };
-      break;
-    case 'normal':
-      currentEffect = { rate: 1.0, pitch: true, name: 'streaming_normal' };
-      break;
-    case 'speedUp':
-      currentEffect = { rate: 1.25, pitch: false, name: 'streaming_speedUp' };
-      break;
-  }
-
-  // Apply the streaming rate to all current playback elements
-  applyStreamingRate(rate);
-
-  console.log(`🎵 Streaming mode enabled with ${rate} playback, currentEffect updated:`, currentEffect);
+  const { rate: rateValue, pitch } = getStreamingRateValues(rate);
+  state.currentEffect = { rate: rateValue, pitch, name: `streaming_${rate}` };
+  applyEffect(rateValue, pitch);
 }
 
 function disableStreamingMode() {
-  console.log('🔧 disableStreamingMode called');
-  streamingMode.enabled = false;
+  const state = window.variatifyState;
+  state.streamingMode.enabled = false;
 
   // Restore per-song settings if available
-  if (currentSongId) {
-    loadSongSetting(currentSongId).then((savedSetting) => {
+  if (state.currentSongId) {
+    loadSongSetting(state.currentSongId).then((savedSetting) => {
       if (savedSetting) {
-        console.log(`🔄 Restoring saved setting for "${currentSongId}":`, savedSetting);
         applyEffectByName(savedSetting.name);
       } else {
-        console.log(`📝 No saved setting found for "${currentSongId}", resetting to normal speed`);
         applyNormalSpeedWithoutSaving();
       }
     });
   } else {
-    console.log(`📝 No current song ID, resetting to normal speed`);
     applyNormalSpeedWithoutSaving();
   }
-
-  console.log("🎵 Streaming mode disabled, restored per-song settings");
 }
 
 function updateStreamingRate(rate) {
-  if (streamingMode.enabled) {
-    console.log('🔧 updateStreamingRate called with rate:', rate);
-    streamingMode.rate = rate;
+  const state = window.variatifyState;
+  if (state.streamingMode.enabled) {
+    state.streamingMode.rate = rate;
+    const { rate: rateValue, pitch } = getStreamingRateValues(rate);
+    state.currentEffect = { rate: rateValue, pitch, name: `streaming_${rate}` };
+    applyEffect(rateValue, pitch);
+  }
+}
 
-    // Update current effect to match new streaming rate
-    switch(rate) {
-      case 'slowed':
-        currentEffect = { rate: 0.8, pitch: false, name: 'streaming_slowed' };
-        break;
-      case 'normal':
-        currentEffect = { rate: 1.0, pitch: true, name: 'streaming_normal' };
-        break;
-      case 'speedUp':
-        currentEffect = { rate: 1.25, pitch: false, name: 'streaming_speedUp' };
-        break;
+// Song change detection
+function checkForSongChange() {
+  const state = window.variatifyState;
+  const songInfo = getCurrentSongInfo();
+  const newSongId = getSongId(songInfo.title);
+
+  if (newSongId !== state.currentSongId && songInfo.title !== 'Not playing') {
+    state.currentSongId = newSongId;
+
+    // Notify content script about song change
+    window.postMessage({
+      source: VARIATIFY.SOURCE.INJECTED,
+      action: 'songChanged',
+      songInfo: songInfo
+    }, '*');
+
+    // Apply appropriate settings for new song
+    if (state.streamingMode.enabled) {
+      const { rate, pitch } = getStreamingRateValues(state.streamingMode.rate);
+      applyEffect(rate, pitch);
+    } else {
+      loadSongSetting(newSongId).then((savedSetting) => {
+        if (savedSetting) {
+          applyEffectByName(savedSetting.name);
+        } else {
+          applyNormalSpeedWithoutSaving();
+        }
+      });
     }
-
-    applyStreamingRate(rate);
-    console.log(`🎵 Streaming rate updated to ${rate}, currentEffect updated:`, currentEffect);
   }
 }
 
-function applyStreamingRate(rate) {
-  console.log('🔧 applyStreamingRate called with rate:', rate);
-  switch(rate) {
-    case 'slowed':
-      console.log('🔧 Applying slowed rate: 0.8x');
-      applyTunevo(0.8, false);
-      break;
-    case 'normal':
-      console.log('🔧 Applying normal rate: 1.0x');
-      applyTunevo(1.0, true);
-      break;
+// Message handler
+function handleMessage(event) {
+  if (event.data.source !== VARIATIFY.SOURCE.CONTENT) return;
+
+  const state = window.variatifyState;
+
+  switch (event.data.action) {
     case 'speedUp':
-      console.log('🔧 Applying speed up rate: 1.25x');
-      applyTunevo(1.25, false);
+      if (!state.streamingMode.enabled) speedUp();
       break;
-    default:
-      console.log('Unknown streaming rate:', rate);
-      applyTunevo(1.0, true);
+
+    case 'normalSpeed':
+      if (!state.streamingMode.enabled) normalSpeed();
+      break;
+
+    case 'slowed':
+      if (!state.streamingMode.enabled) slowed();
+      break;
+
+    case 'enableStreamingMode':
+      enableStreamingMode(event.data.data.rate);
+      break;
+
+    case 'disableStreamingMode':
+      disableStreamingMode();
+      break;
+
+    case 'updateStreamingRate':
+      updateStreamingRate(event.data.data.rate);
+      break;
+
+    case 'getCurrentSetting':
+      if (state.streamingMode.enabled) {
+        window.postMessage({
+          source: VARIATIFY.SOURCE.INJECTED,
+          action: 'currentSetting',
+          setting: { name: 'streaming', rate: state.streamingMode.rate }
+        }, '*');
+      } else {
+        loadSongSetting(state.currentSongId).then((setting) => {
+          window.postMessage({
+            source: VARIATIFY.SOURCE.INJECTED,
+            action: 'currentSetting',
+            setting: setting
+          }, '*');
+        });
+      }
+      break;
+
+    case 'clearCurrentSetting':
+      if (!state.streamingMode.enabled && state.currentSongId) {
+        clearSongSetting(state.currentSongId);
+      }
+      applyNormalSpeedWithoutSaving();
+      window.postMessage({
+        source: VARIATIFY.SOURCE.INJECTED,
+        action: 'settingCleared',
+        songId: state.currentSongId
+      }, '*');
+      break;
+
+    case 'listAllSettings':
+      listAllSavedSettings().then((allSettings) => {
+        window.postMessage({
+          source: VARIATIFY.SOURCE.INJECTED,
+          action: 'allSettings',
+          settings: allSettings
+        }, '*');
+      });
+      break;
+  }
+
+  // Send acknowledgment for basic actions
+  const noAckActions = ['getCurrentSetting', 'clearCurrentSetting', 'enableStreamingMode',
+                        'disableStreamingMode', 'updateStreamingRate', 'listAllSettings'];
+  if (!noAckActions.includes(event.data.action)) {
+    window.postMessage({
+      source: VARIATIFY.SOURCE.INJECTED,
+      status: 'Action executed: ' + event.data.action
+    }, '*');
   }
 }
 
-// Initial delay + mutation observer
-const initTunevo = () => {
+// Initialization
+function init() {
+  const state = window.variatifyState;
+
+  // Set up mutation observer to reapply effect when Spotify changes audio
   const observer = new MutationObserver(() => {
-    applyTunevo();
-    checkForSongChange(); // Check for song changes
+    applyCurrentEffect();
+    checkForSongChange();
   });
   observer.observe(document.body, { childList: true, subtree: true });
 
+  // Poll to fight Spotify's rate resets and detect song changes
   setInterval(() => {
-    applyTunevo(); // Reapply current effect repeatedly to fight Spotify's resets
-    checkForSongChange(); // Check for song changes
-  }, 1000);
-};
+    applyCurrentEffect();
+    checkForSongChange();
+  }, VARIATIFY.TIMEOUTS.POLL_INTERVAL);
 
-console.log("🚀 Variatify initializing...");
-setTimeout(() => {
-  initTunevo();
-  applyTunevo(); // initial force
-
-  // Initialize current song ID
+  // Initialize current song
   const songInfo = getCurrentSongInfo();
-  currentSongId = getSongId(songInfo.title);
+  state.currentSongId = getSongId(songInfo.title);
 
-  // Load and apply saved setting for current song if available
-  if (currentSongId && songInfo.title !== 'Not playing') {
-    loadSongSetting(currentSongId).then((savedSetting) => {
+  // Load saved setting for current song
+  if (state.currentSongId && songInfo.title !== 'Not playing') {
+    loadSongSetting(state.currentSongId).then((savedSetting) => {
       if (savedSetting) {
-        console.log(`🔄 Applying saved setting for current song "${currentSongId}":`, savedSetting);
         applyEffectByName(savedSetting.name);
       }
     });
   }
 
-  console.log("✅ Variatify running.");
-}, 2000);
+  console.log('Variatify initialized');
+}
 
-// Listen for messages from content script
-window.addEventListener('message', function(event) {
-    if (event.data.source === 'content-script') {
-        console.log('Received message from popup:', event.data.action, event.data);
+// Set up message listener
+window.addEventListener('message', handleMessage);
 
-        switch(event.data.action) {
-            case 'speedUp':
-                if (!streamingMode.enabled) {
-                    speedUp();
-                }
-                break;
-            case 'normalSpeed':
-                if (!streamingMode.enabled) {
-                    normalSpeed();
-                }
-                break;
-            case 'slowed':
-                if (!streamingMode.enabled) {
-                    slowed();
-                }
-                break;
-            case 'enableStreamingMode':
-                console.log('🔧 Processing enableStreamingMode message:', event.data);
-                enableStreamingMode(event.data.data.rate);
-                break;
-            case 'disableStreamingMode':
-                disableStreamingMode();
-                break;
-            case 'updateStreamingRate':
-                updateStreamingRate(event.data.data.rate);
-                break;
-            case 'getCurrentSetting':
-                console.log('🔧 getCurrentSetting called, streamingMode.enabled:', streamingMode.enabled);
-                if (streamingMode.enabled) {
-                    // Send streaming mode state instead of per-song setting
-                    const streamingSetting = { name: 'streaming', rate: streamingMode.rate };
-                    console.log('🔧 Sending streaming mode setting:', streamingSetting);
-                    window.postMessage({
-                        source: 'injected-script',
-                        action: 'currentSetting',
-                        setting: streamingSetting
-                    }, '*');
-                } else {
-                    getCurrentSongSetting().then((currentSetting) => {
-                        console.log('🔧 Sending per-song setting:', currentSetting);
-                        window.postMessage({
-                            source: 'injected-script',
-                            action: 'currentSetting',
-                            setting: currentSetting
-                        }, '*');
-                    });
-                }
-                break;
-            case 'clearCurrentSetting':
-                if (!streamingMode.enabled && currentSongId) {
-                    clearSongSetting(currentSongId);
-                }
-                // Apply normal speed when clearing a saved setting
-                applyNormalSpeedWithoutSaving();
-                window.postMessage({
-                    source: 'injected-script',
-                    action: 'settingCleared',
-                    songId: currentSongId
-                }, '*');
-                break;
-            case 'listAllSettings':
-                listAllSavedSettings().then((allSettings) => {
-                    window.postMessage({
-                        source: 'injected-script',
-                        action: 'allSettings',
-                        settings: allSettings
-                    }, '*');
-                });
-                break;
-            default:
-                console.log('Unknown action:', event.data.action);
-        }
-
-        // Send response back to content script for regular actions
-        if (!['getCurrentSetting', 'clearCurrentSetting', 'enableStreamingMode', 'disableStreamingMode', 'updateStreamingRate'].includes(event.data.action)) {
-            window.postMessage({
-                source: 'injected-script',
-                status: 'Action executed: ' + event.data.action
-            }, '*');
-        }
-    }
-});
+// Start after a delay to ensure Spotify is fully loaded
+setTimeout(() => {
+  init();
+  applyCurrentEffect();
+}, VARIATIFY.TIMEOUTS.INIT_DELAY);
