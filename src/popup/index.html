@@ -8,41 +8,33 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-
-    <!-- POPUP CONTENT -->
-     <!-- <p class="author-text">by osmatrixcode aka Ameer Osman Yousufzia</p> -->
     <div class="app">
       <header class="header">
-        <h1>🎧 Variatify</h1>
+        <h1>Variatify</h1>
         <p>Transform your Spotify experience</p>
         <div class="current-song">
           <div class="song-info">
             <span class="song-title" id="songTitle">Loading...</span>
-            <span class="song-artist" id="songArtist">Loading...</span>
+            <span class="song-artist" id="songArtist"></span>
           </div>
           <div class="setting-status" id="settingStatus">
             <span class="setting-text" id="settingText">No saved setting</span>
-            <button
-              class="clear-btn"
-              id="clearSettingBtn"
-              style="display: none"
-            >
+            <button class="clear-btn" id="clearSettingBtn" style="display: none">
               Clear
             </button>
           </div>
         </div>
       </header>
 
-      <!-- problem? -->
       <div class="help-section">
-        <p class="help-text">extension not working? Try refreshing the page!</p>
+        <p class="help-text">Extension not working? Try refreshing the page!</p>
       </div>
 
       <!-- Streaming Mode Section -->
       <div class="streaming-mode">
         <div class="streaming-header">
-          <h3>🎵 Streaming Mode</h3>
-          <p>Apply same playback rate to the songs currently playing without changing saved playback rates</p>
+          <h3>Streaming Mode</h3>
+          <p>Apply same playback rate to all songs without saving per-song settings</p>
         </div>
         <div class="streaming-controls">
           <div class="toggle-container">
@@ -69,7 +61,7 @@
             <div class="btn-content">
               <img
                 src="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExZ2tpdWRleWQ0b3V4Y3lpajBvZWxsenF2ZndpZ3RxY2llYWNxMHU2ciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/6k6iDdi5NN8ZO/giphy.gif"
-                alt="Happy anime girl dancing"
+                alt="Speed up"
                 class="btn-gif"
               />
               <span>Speed Up</span>
@@ -95,7 +87,7 @@
             <div class="btn-content">
               <img
                 src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExZm83czdkeThobXNhbmNwemtxZWZ0dXo4bnYwcDh0dnRjbmUwdzYzYiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/4ilFRqgbzbx4c/giphy.gif"
-                alt="Sad Simpson"
+                alt="Slowed"
                 class="btn-gif"
               />
               <span>Slowed</span>
@@ -107,55 +99,26 @@
       <!-- Clear All Preferences Button -->
       <div class="clear-all-section">
         <button id="clearAllBtn" class="clear-all-btn">
-          🗑️ Clear All Preferences
+          Clear All Preferences
         </button>
       </div>
 
       <!-- Import/Export Section -->
       <div class="import-export-section">
         <div class="import-export-header">
-          <h3>📁 Backup & Restore</h3>
+          <h3>Backup & Restore</h3>
           <p>Export your preferences or import from a backup file</p>
         </div>
         <div class="import-export-buttons">
           <button id="exportBtn" class="import-export-btn export-btn">
-            📤 Export Preferences
+            Export Preferences
           </button>
           <button id="importBtn" class="import-export-btn import-btn">
-            📥 Import Preferences
+            Import Preferences
           </button>
           <input type="file" id="importFileInput" accept=".json" style="display: none;">
         </div>
       </div>
-
-      <!-- <div class="footer">
-        <a
-          href="https://www.buymeacoffee.com/tunevo"
-          target="_blank"
-          class="buy-me-coffee"
-        >
-          ☕ Buy me a coffee
-        </a>
-      </div> -->
     </div>
-
-    <!-- First Time Modal -->
-    <div id="firstTimeModal" class="modal-overlay" style="display: none">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>🎉 Welcome to Tunevo!</h2>
-        </div>
-        <div class="modal-body">
-          <p>
-            Thanks for trying out Tunevo! If you find this extension helpful,
-            consider supporting the development with a coffee ☕
-          </p>
-
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- <p class="author-text">by osmatrixcode aka Ameer Osman Yousufzia</p> -->
-
   </body>
 </html>
