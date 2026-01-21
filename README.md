@@ -21,8 +21,8 @@ A Chrome extension that lets you control playback speed on Spotify Web Player â€
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/osmatrixcode/variatify
-   cd variatify-chrome-extensions/variatify
+   git clone https://github.com/osmatrixcode/variatify.git
+   cd variatify
    ```
 
 2. Open Chrome and go to `chrome://extensions/`
