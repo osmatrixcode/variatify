@@ -3,7 +3,7 @@
   "description": "Add effects like Slowed + Reverb or Nightcore to your Spotify songs - and it remembers your choice for each song.",
   "version": "1.2",
   "manifest_version": 3,
-  "permissions": ["storage", "sidePanel"],
+  "permissions": ["storage", "sidePanel", "tabs"],
   "icons": {
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
