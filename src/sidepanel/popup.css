@@ -17,8 +17,8 @@ body {
   background: linear-gradient(270deg, #5c6ac4, #9c6ade, #f49342);
   background-size: 600% 600%;
   animation: gradientShift 12s ease infinite;
-  width: 320px;
-  min-height: 400px;
+  width: 100%;
+  min-height: 100vh;
 }
 
 @keyframes gradientShift {

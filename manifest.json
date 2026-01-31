@@ -1,16 +1,20 @@
 {
   "name": "Variatify",
   "description": "Add effects like Slowed + Reverb or Nightcore to your Spotify songs - and it remembers your choice for each song.",
-  "version": "1.1",
+  "version": "1.2",
   "manifest_version": 3,
-  "permissions": ["storage"],
+  "permissions": ["storage", "sidePanel", "tabs"],
   "icons": {
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "action": {
-    "default_popup": "src/popup/index.html"
+  "action": {},
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/index.html"
   },
   "content_scripts": [
     {
