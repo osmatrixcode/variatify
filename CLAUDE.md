@@ -4,37 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Variatify (formerly Tunevo) is a Chrome extension that modifies Spotify Web Player playback rates. It allows users to apply audio effects like Speed Up (1.25x), Normal (1.0x), and Slowed (0.8x) to songs, with per-song settings that are remembered.
+Variatify is a Chrome extension that modifies Spotify Web Player playback rates. It allows users to apply audio effects like Speed Up (1.25x), Normal (1.0x), and Slowed (0.8x) to songs, with per-song settings that are remembered.
 
 ## Architecture
 
-This is a Chrome Extension (Manifest V3) with three main script contexts:
+Chrome Extension (Manifest V3) with three script contexts:
 
-### Script Contexts & Communication Flow
+### Communication Flow
 
 ```
 Popup (popup.js)
     ↓ chrome.tabs.sendMessage
-Content Script (load-main.js)
+Content Script (content.js)
     ↓ window.postMessage
-Injected Script (main.js) ← Runs in page context, can access Spotify's audio elements
+Injected Scripts (page context) ← Can access Spotify's audio elements
 ```
 
-1. **Background Service Worker** (`src/background.js`): Initializes ExtPay for payment processing
-2. **Content Script** (`src/content/load-main.js`): Bridge between popup and injected script. Handles Chrome storage operations and message forwarding
-3. **Injected Script** (`src/injected/main.js`): Runs in page context to intercept and modify HTMLMediaElement playback. Contains core audio manipulation logic
-4. **Popup** (`src/popup/popup.js`): User interface for controls, streaming mode toggle, and payment management
+1. **Content Script** (`src/content/content.js`): Bridge between popup and injected scripts. Handles Chrome storage operations and message forwarding. Injects scripts in order.
+2. **Injected Scripts** (`src/injected/`): Run in page context to manipulate Spotify's audio:
+   - `constants.js`: Shared constants, effect definitions, DOM selectors
+   - `detector.js`: Finds current song from Spotify's DOM
+   - `audio.js`: Overrides `HTMLMediaElement.prototype.playbackRate`
+   - `main.js`: Orchestrates state, handles messages, applies effects
+3. **Popup** (`src/popup/popup.js`): User interface for controls and streaming mode toggle
 
 ### Key Mechanisms
 
 - **Playback Rate Control**: Overrides `HTMLMediaElement.prototype.playbackRate` setter to prevent Spotify from resetting custom rates
-- **Song Detection**: Monitors DOM changes and page title to detect song changes, then applies saved settings
+- **Song Detection**: Monitors DOM changes via MutationObserver and polls to detect song changes, then applies saved settings
 - **Streaming Mode**: Applies a global playback rate to all songs without saving per-song preferences
-- **Storage**: Uses `chrome.storage.local` with key `tunevo_song_settings` for per-song settings and `tunevo_streaming_mode` for streaming state
-
-### Payment Integration
-
-Uses ExtPay (extensionpay.com) for trial/payment handling. Authentication status is passed through all script contexts via message passing.
 
 ## Development
 
@@ -48,17 +46,12 @@ Uses ExtPay (extensionpay.com) for trial/payment handling. Authentication status
 
 After code changes, reload the extension in `chrome://extensions/` and refresh any open Spotify tabs.
 
-### Key Files
-
-- `manifest.json`: Extension configuration, permissions, content script matches
-- `src/injected/main.js`: Core playback manipulation - the main logic lives here
-- `src/content/load-main.js`: Chrome API bridge and storage operations
-- `src/popup/popup.js`: All UI logic and user interaction handling
-
 ### Storage Keys
 
-- `tunevo_song_settings`: Object mapping song IDs (lowercase song titles) to effect objects
-- `tunevo_streaming_mode`: `{ enabled: boolean, rate: 'slowed' | 'normal' | 'speedUp' }`
+- `variatify_song_settings`: Object mapping song IDs (lowercase song titles) to effect objects
+- `variatify_streaming_mode`: `{ enabled: boolean, rate: 'slowed' | 'normal' | 'speedUp' }`
+
+Legacy keys (`tunevo_*`) are auto-migrated on load.
 
 ### Effect Values
 
